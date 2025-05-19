@@ -1,0 +1,25 @@
+---
+Language: Cpp
+
+ColumnLimit: 0
+TabWidth: 2
+UseTab: AlignWithSpaces
+
+DerivePointerAlignment: False
+PointerAlignment: Left
+InsertNewlineAtEOF: true
+
+AlignArrayOfStructures: Right
+
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortBlocksOnASingleLine: Always
+AllowShortLoopsOnASingleLine: true
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Right
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AllowShortCaseExpressionOnASingleLine: true 
+ 
