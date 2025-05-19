@@ -27,36 +27,32 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
+include(rtos/FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
 
 project(HMI-Glove C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+# add_subdirectory(rtos)
 
-add_executable(HMI-Glove HMI-Glove.cpp )
+# Add executable.
+add_executable(${PROJECT_NAME} HMI-Glove.cpp)
 
-pico_set_program_name(HMI-Glove "HMI-Glove")
-pico_set_program_version(HMI-Glove "0.1")
+target_include_directories(${PROJECT_NAME}
+  PUBLIC include/
+)
+
+# Add library dependencies
+target_link_libraries(${PROJECT_NAME}
+  pico_stdlib
+  pico_lwip_iperf
+  pico_cyw43_arch_lwip_threadsafe_background
+  FreeRTOS-Kernel-Heap4
+)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(HMI-Glove 0)
 pico_enable_stdio_usb(HMI-Glove 1)
 
-# Add the standard library to the build
-target_link_libraries(HMI-Glove
-        pico_stdlib)
-
-# Add the standard include files to the build
-target_include_directories(HMI-Glove PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
-)
-
-# Add any user requested libraries
-target_link_libraries(HMI-Glove 
-        pico_cyw43_arch_none
-        )
-
 pico_add_extra_outputs(HMI-Glove)
-
