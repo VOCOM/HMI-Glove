@@ -37,7 +37,10 @@ pico_sdk_init()
 # add_subdirectory(rtos)
 
 # Add executable.
-add_executable(${PROJECT_NAME} HMI-Glove.cpp)
+add_executable(${PROJECT_NAME} 
+  source/HMI-Glove.cpp
+  source/mpu6050.cpp
+)
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC include/

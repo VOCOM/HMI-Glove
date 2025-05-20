@@ -1,17 +1,19 @@
-#include <stdio.h>
-
+// Hardware Headers
+#include "hardware/i2c.h"
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
+#include <stdio.h>
 
-#include "hardware/i2c.h"
-
-// LWiP
-#include "lwipopts.h"
-
-// FreeRTOS
+// OS Headers
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"
+
+// Network Headers
+#include "lwipopts.h"
+
+// Program Headers
+#include "mpu6050.hpp"
 
 void Heartbeat(void*);
 void IMUReader(void*);
@@ -54,45 +56,14 @@ int main() {
 }
 
 void IMUReader(void* param) {
-	int mpu6050_addr = 0x68;
-	int16_t accel[3], gyro[3], temp;
-	uint8_t buf[6] = {0, 0, 0, 0, 0, 0};
-
-	// Reset MPU6050
-	buf[0] = 0x6B;
-	buf[1] = 0x80;
-	i2c_write_blocking(i2c_default, mpu6050_addr, buf, 2, false);
-	vTaskDelay(100);
-
-	// Wake MPU6050
-	buf[1] = 0x00;
-	i2c_write_blocking(i2c_default, mpu6050_addr, buf, 2, false);
-	vTaskDelay(10);
+	printf("Initializing MPU6050\n");
+	MPU6050 sensor1(i2c_default);
 
 	while (true) {
-		// Read data
-		buf[0] = 0x3B;
-		i2c_write_blocking(i2c_default, mpu6050_addr, buf, 1, true);
-		i2c_read_blocking(i2c_default, mpu6050_addr, buf, 6, false);
-		for (int i = 0; i < 3; ++i) {
-			accel[i] = (buf[i * 2] << 8 | buf[(i * 2) + 1]); // Big Endian
-		}
-
-		buf[0] = 0x43;
-		i2c_write_blocking(i2c_default, mpu6050_addr, buf, 1, true);
-		i2c_read_blocking(i2c_default, mpu6050_addr, buf, 6, false);
-		for (int i = 0; i < 3; ++i) {
-			gyro[i] = (buf[i * 2] << 8 | buf[(i * 2) + 1]); // Big Endian
-		}
-
-		buf[0] = 0x41;
-		i2c_write_blocking(i2c_default, mpu6050_addr, buf, 1, true);
-		i2c_read_blocking(i2c_default, mpu6050_addr, buf, 2, false);
-		temp = (buf[0] << 8 | buf[1]); // Big Endian
-
-		printf("Acc: X = %d Y = %d Z = %d\n", accel[0], accel[1], accel[2]);
-		printf("Gyr: X = %d Y = %d Z = %d\n", gyro[0], gyro[1], gyro[2]);
-		printf("Tmp: %.2f\n", (temp / 340.0) + 36.53);
+		sensor1.GetAll();
+		printf("Acc: X = %.1fg Y = %.1fg Z = %.1fg\n", sensor1.Acceleration.x, sensor1.Acceleration.y, sensor1.Acceleration.z);
+		printf("Gyr: X = %.1fdeg/s Y = %.1fdeg/s Z = %.1fdeg/s\n", sensor1.Gyroscope.x, sensor1.Gyroscope.y, sensor1.Gyroscope.z);
+		printf("Tmp: %.2f\n", sensor1.Temperature);
 
 		vTaskDelay(100);
 	}
