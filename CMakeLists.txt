@@ -46,13 +46,13 @@ target_include_directories(${PROJECT_NAME}
 # Add library dependencies
 target_link_libraries(${PROJECT_NAME}
   pico_stdlib
-  pico_lwip_iperf
-  pico_cyw43_arch_lwip_threadsafe_background
   FreeRTOS-Kernel-Heap4
+  pico_cyw43_arch_lwip_sys_freertos
+  hardware_i2c
 )
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(HMI-Glove 0)
-pico_enable_stdio_usb(HMI-Glove 1)
+pico_enable_stdio_uart(${PROJECT_NAME} 0)
+pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
-pico_add_extra_outputs(HMI-Glove)
+pico_add_extra_outputs(${PROJECT_NAME})

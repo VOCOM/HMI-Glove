@@ -1,17 +1,26 @@
 #ifndef FREERTOSCONFIG
 #define FREERTOSCONFIG
 
+/* System */
+#define configSTACK_DEPTH_TYPE uint32_t
+#define configMESSAGE_BUFFER_LENGTH_TYPE size_t
+
 /* Scheduler Related */
 #define configUSE_PREEMPTION 1
-#define configUSE_TICKLESS_IDLE 0
+#define configTICK_RATE_HZ ((TickType_t)1000)
+#define configUSE_16_BIT_TICKS 0
 #define configUSE_IDLE_HOOK 0
 #define configUSE_TICK_HOOK 0
-#define configTICK_RATE_HZ ((TickType_t)1000)
-#define configMAX_PRIORITIES 32
+#define configUSE_TICKLESS_IDLE 0
 #define configMINIMAL_STACK_SIZE (configSTACK_DEPTH_TYPE)512
-#define configUSE_16_BIT_TICKS 0
-
 #define configIDLE_SHOULD_YIELD 1
+#define configMAX_PRIORITIES 32
+
+/* Custom Priorities */
+#define PRIORITY_IDLE 0
+#define PRIORITY_LOW 1
+#define PRIORITY_MEDIUM 2
+#define PRIORITY_HIGH 3
 
 /* Synchronization Related */
 #define configUSE_MUTEXES 1
@@ -25,10 +34,6 @@
 // todo need this for lwip FreeRTOS sys_arch to compile
 #define configENABLE_BACKWARD_COMPATIBILITY 1
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 5
-
-/* System */
-#define configSTACK_DEPTH_TYPE uint32_t
-#define configMESSAGE_BUFFER_LENGTH_TYPE size_t
 
 /* Memory allocation related definitions. */
 #define configSUPPORT_STATIC_ALLOCATION 0
@@ -64,7 +69,7 @@
 /* Armv8-M */
 /* CPU configuration */
 #define configCPU_CLOCK_HZ (125000000)
-#define configNUMBER_OF_CORES 2 // SMP
+#define configNUMBER_OF_CORES 2
 #define configTICK_CORE 0
 #define configRUN_MULTIPLE_PRIORITIES 1
 #define configUSE_CORE_AFFINITY 1
@@ -101,7 +106,5 @@
 #define INCLUDE_xTaskGetHandle 1
 #define INCLUDE_xTaskResumeFromISR 1
 #define INCLUDE_xQueueGetMutexHolder 1
-
-/* A header file that defines trace macro can be included here. */
 
 #endif /* FREERTOSCONFIG */
