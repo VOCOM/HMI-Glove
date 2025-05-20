@@ -10,6 +10,22 @@
 
 // Program Headers
 #include "dataTypes.hpp"
+#include "filters.hpp"
+
+/**
+ * ID: Range | Resolution
+ * Force
+ * 0: +- 2 g | 16384 LSB/g
+ * 1: +- 4 g |  8192 LSB/g
+ * 2: +- 8 g |  4096 LSB/g
+ * 3: +-16 g |  2048 LSB/g
+ *
+ * Angular
+ * 0: +- 250 deg/s | 131.0 LSB/deg/s
+ * 1: +- 500 deg/s |  65.5 LSB/deg/s
+ * 2: +-1000 deg/s |  32.8 LSB/deg/s
+ * 3: +-2000 deg/s |  16.4 LSB/deg/s
+ */
 
 class MPU6050 {
 public:
@@ -18,10 +34,10 @@ public:
 	void Reset();
 	void SetAccelerationResolution(uint level);
 	void SetGryoscopeResolution(uint level);
-	void GetAcceleration();
-	void GetGryoscope();
-	void GetTemperature();
-	void GetAll();
+	void UpdateAcceleration();
+	void UpdateGryoscope();
+	void UpdateTemperature();
+	void UpdateAll();
 
 	Vector3 Acceleration;
 	Vector3 Gyroscope;
@@ -34,6 +50,11 @@ private:
 private:
 	i2c_inst_t* bus;
 	uint8_t buffer[6];
+	float alpha;
+
+private: // Offsets
+	static const Vector3 OFFSET_ACCELEROMETER;
+	static const Vector3 OFFSET_GYROSCOPE;
 
 private: // Resolution
 	float RESOLUTION_FORCE;

@@ -1,8 +1,11 @@
+// C Headers
+#include <math.h>
+#include <stdio.h>
+
 // Hardware Headers
 #include "hardware/i2c.h"
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
-#include <stdio.h>
 
 // OS Headers
 #include "FreeRTOS.h"
@@ -13,13 +16,15 @@
 #include "lwipopts.h"
 
 // Program Headers
+#include "dataTypes.hpp"
+#include "filters.hpp"
 #include "mpu6050.hpp"
 
 void Heartbeat(void*);
 void IMUReader(void*);
 
 static SemaphoreHandle_t mutex;
-static int testVal = 0;
+static Odometry fused_odom;
 
 /// @brief HMI-Glove entry point
 /// @param param
@@ -39,7 +44,20 @@ void mainTask(void* param) {
 	xTaskCreate(Heartbeat, "Heartbeat", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	xTaskCreate(IMUReader, "IMU", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
+	TickType_t lastTick = xTaskGetTickCount();
 	while (true) {
+		TickType_t currentTick = xTaskGetTickCount();
+		float deltaTime        = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
+
+		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
+			printf("Fused Odometry\n");
+			printf("Acceleration [%0.1f,%0.1f,%0.1f]m/s^2\n", fused_odom.Acceleration.x, fused_odom.Acceleration.y, fused_odom.Acceleration.z);
+			printf("Orientation  [%0.1f,%0.1f,%0.1f]rad\n", fused_odom.Orientation.x, fused_odom.Orientation.y, fused_odom.Orientation.z);
+			printf("\n");
+			xSemaphoreGive(mutex);
+		}
+
+		lastTick = currentTick;
 		vTaskDelay(100);
 	}
 }
@@ -60,10 +78,23 @@ void IMUReader(void* param) {
 	MPU6050 sensor1(i2c_default);
 
 	while (true) {
-		sensor1.GetAll();
-		printf("Acc: X = %.1fg Y = %.1fg Z = %.1fg\n", sensor1.Acceleration.x, sensor1.Acceleration.y, sensor1.Acceleration.z);
-		printf("Gyr: X = %.1fdeg/s Y = %.1fdeg/s Z = %.1fdeg/s\n", sensor1.Gyroscope.x, sensor1.Gyroscope.y, sensor1.Gyroscope.z);
-		printf("Tmp: %.2f\n", sensor1.Temperature);
+		sensor1.UpdateAll();
+
+		// #TODO: Move this into the MPU6050, possibly abstract as static function
+		float roll    = atan2f(sensor1.Acceleration.y, sensor1.Acceleration.z);
+		float x2      = sensor1.Acceleration.x * sensor1.Acceleration.x;
+		float y2      = sensor1.Acceleration.y * sensor1.Acceleration.y;
+		float z2      = sensor1.Acceleration.z * sensor1.Acceleration.z;
+		float gVector = sqrtf(x2 + y2 + z2);
+		float pitch   = asinf(sensor1.Acceleration.x / gVector);
+
+		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
+			fused_odom.Orientation.x = EMA(roll, fused_odom.Orientation.x, 0.5);
+			fused_odom.Orientation.y = EMA(pitch, fused_odom.Orientation.y, 0.5);
+			// #TODO: Remove Gravity Vector
+			fused_odom.Acceleration = EMA(sensor1.Acceleration * 9.81, fused_odom.Acceleration, 0.5);
+			xSemaphoreGive(mutex);
+		}
 
 		vTaskDelay(100);
 	}

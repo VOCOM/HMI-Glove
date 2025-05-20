@@ -40,6 +40,8 @@ pico_sdk_init()
 add_executable(${PROJECT_NAME} 
   source/HMI-Glove.cpp
   source/mpu6050.cpp
+  source/filters.cpp
+  source/dataTypes.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
