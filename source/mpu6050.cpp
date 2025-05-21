@@ -1,9 +1,5 @@
 #include "mpu6050.hpp"
 
-#include "filters.hpp"
-
-#include <stdio.h>
-
 // Public Interface
 MPU6050::MPU6050(i2c_inst_t* bus) : bus(bus) {
 	Reset();
@@ -18,10 +14,6 @@ void MPU6050::Reset() {
 	WriteRegister(REGISTER_PWR_MGMT, 0x00);
 }
 void MPU6050::Calibrate() {
-	printf("Old Offsets\n");
-	printf("Acc: [%7.3f,%7.3f,%7.3f]\n", OFFSET_ACCELEROMETER.x, OFFSET_ACCELEROMETER.y, OFFSET_ACCELEROMETER.z);
-	printf("Gyr: [%7.3f,%7.3f,%7.3f]\n", OFFSET_GYROSCOPE.x, OFFSET_GYROSCOPE.y, OFFSET_GYROSCOPE.z);
-
 	OFFSET_ACCELEROMETER = Vector3();
 	OFFSET_GYROSCOPE     = Vector3();
 
@@ -40,10 +32,6 @@ void MPU6050::Calibrate() {
 	OFFSET_ACCELEROMETER.z -= 1; // Gravity
 
 	useFilters = oldState;
-
-	printf("New Offsets\n");
-	printf("Acc: [%7.3f,%7.3f,%7.3f]\n", OFFSET_ACCELEROMETER.x, OFFSET_ACCELEROMETER.y, OFFSET_ACCELEROMETER.z);
-	printf("Gyr: [%7.3f,%7.3f,%7.3f]\n", OFFSET_GYROSCOPE.x, OFFSET_GYROSCOPE.y, OFFSET_GYROSCOPE.z);
 }
 void MPU6050::Update() {
 	UpdateAcceleration();

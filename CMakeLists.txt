@@ -37,10 +37,8 @@ pico_sdk_init()
 # Add executable.
 add_executable(${PROJECT_NAME} 
   source/HMI-Glove.cpp
+  source/math.cpp
   source/mpu6050.cpp
-  source/filters.cpp
-  source/dataTypes.cpp
-  source/kinematics.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -49,10 +47,14 @@ target_include_directories(${PROJECT_NAME}
 
 # Add library dependencies
 target_link_libraries(${PROJECT_NAME}
+  pico_stdio
   pico_stdlib
+  pico_float
+  pico_double
+  pico_divider
+  hardware_i2c
   FreeRTOS-Kernel-Heap4
   pico_cyw43_arch_lwip_sys_freertos
-  hardware_i2c
 )
 
 # Modify the below lines to enable/disable output over UART/USB

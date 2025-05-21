@@ -1,11 +1,10 @@
-// C Headers
-#include <cmath>
-#include <cstdio>
+// PICO C Headers
+#include "pico/stdio.h"
+#include "pico/stdlib.h"
 
 // Hardware Headers
 #include "hardware/i2c.h"
 #include "pico/cyw43_arch.h"
-#include "pico/stdlib.h"
 
 // OS Headers
 #include "FreeRTOS.h"
@@ -16,9 +15,7 @@
 #include "lwipopts.h"
 
 // Program Headers
-#include "dataTypes.hpp"
-#include "filters.hpp"
-#include "kinematics.hpp"
+#include "math.hpp"
 #include "mpu6050.hpp"
 
 void Heartbeat(void*);
@@ -133,17 +130,14 @@ void KinematicEngine(void* param) {
 			// Linear
 			// #TODO: Remove Gravity Vector
 			// 1. World frame -> Body frame
-			// 2. Subtract g
+			Matrix3x3 bodyFrame{Matrix3x3::FromEuler(odometry.Euler)};
+			Vector3 gravity = bodyFrame * G;
+			printf("Gravity (Body Frame)\n");
+			printf("%6.1f %6.1f %6.1f\n", gravity.x, gravity.y, gravity.z);
 
-			// [0 0 g] [ 0  0 0]
-			// [g 0 0] [ 0 90 0]
-			// [0 g 0] [90  0 0]
-
-			float gx = 9.81 * cosf(euler.y) * cosf(euler.z);
-			float gy = 9.81 * (sinf(euler.x) * sinf(euler.y) * sinf(euler.z) + cosf(euler.x) * cosf(euler.z));
-			float gz = 9.81 * cosf(euler.x) * cosf(euler.y);
-			printf("Gravity: %6.1f %6.1f %6.1f\n", gx, gy, gz);
-			printf("Euler: %6.1f %6.1f %6.1f\n", euler.x, euler.y, euler.z);
+			printf("Acceleration (Body Frame)\n");
+			printf("%6.1f %6.1f %6.1f\n", odometry.Acceleration.x, odometry.Acceleration.y, odometry.Acceleration.z);
+			printf("\n");
 
 			// Truncate
 			odometry.Acceleration.Round(3);

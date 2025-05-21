@@ -1,10 +1,6 @@
 #ifndef MPU6050_HPP
 #define MPU6050_HPP
 
-#ifndef PI
-#define PI 3.1415927
-#endif
-
 // Hardware Headers
 #include "hardware/i2c.h"
 
@@ -13,7 +9,7 @@
 #include "task.h"
 
 // Program Headers
-#include "dataTypes.hpp"
+#include "math.hpp"
 
 /**
  * ID: Range | Resolution
