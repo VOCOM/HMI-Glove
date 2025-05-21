@@ -23,9 +23,10 @@
 
 void Heartbeat(void*);
 void IMUReader(void*);
+void KinematicEngine(void* param);
 
-static SemaphoreHandle_t mutex;
-static Odometry fused_odom;
+static SemaphoreHandle_t mutex_odometry;
+static Odometry odometry;
 
 /**
  * @brief HMI-Glove entry point
@@ -46,36 +47,26 @@ void mainTask(void* param) {
 	gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
 
 	xTaskCreate(Heartbeat, "Heartbeat", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
-	xTaskCreate(IMUReader, "IMU", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
+	xTaskCreate(IMUReader, "I2C Reader", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
+	xTaskCreate(KinematicEngine, "Kinematics Engine", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
-	TickType_t lastTick = xTaskGetTickCount();
 	while (true) {
-		TickType_t currentTick = xTaskGetTickCount();
-		float deltaTime        = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
+		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
+			// printf("Fused Odometry\n");
+			// printf("Linear\n");
+			// printf("Acceleration [%6.1f,%6.1f,%6.1f]m/s^2\n",
+			//        odometry.Acceleration.x,
+			//        odometry.Acceleration.y,
+			//        odometry.Acceleration.z);
 
-		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
-			fused_odom.Euler += fused_odom.EulerRate * deltaTime;
-			fused_odom.Euler %= PI;
-			Vector2 eulerAccel = EulerFromAccel(fused_odom.Acceleration);
-			fused_odom.Euler.x = EMA(eulerAccel.x, fused_odom.Euler.x, 0.75);
-			fused_odom.Euler.y = EMA(eulerAccel.y, fused_odom.Euler.y, 0.75);
-
-			printf("Fused Odometry\n");
-			printf("Linear\n");
-			printf("Acceleration [%6.1f,%6.1f,%6.1f]m/s^2\n",
-			       fused_odom.Acceleration.x * 9.81,
-			       fused_odom.Acceleration.y * 9.81,
-			       fused_odom.Acceleration.z * 9.81);
-
-			printf("Angular\n");
-			printf("Euler Rate   [%6.1f,%6.1f,%6.1f]rad/s\n", fused_odom.EulerRate.x, fused_odom.EulerRate.y, fused_odom.EulerRate.z);
-			printf("Euler        [%6.1f,%6.1f,%6.1f]rad\n", fused_odom.Euler.x, fused_odom.Euler.y, fused_odom.Euler.z);
-			printf("\n");
-			xSemaphoreGive(mutex);
+			// printf("Angular\n");
+			// printf("Euler Rate   [%6.1f,%6.1f,%6.1f]rad/s\n", odometry.EulerRate.x, odometry.EulerRate.y, odometry.EulerRate.z);
+			// printf("Euler        [%6.1f,%6.1f,%6.1f]rad\n", odometry.Euler.x, odometry.Euler.y, odometry.Euler.z);
+			// printf("\n");
+			xSemaphoreGive(mutex_odometry);
 		}
 
-		lastTick = currentTick;
-		vTaskDelay(100);
+		vTaskDelay(1000);
 	}
 }
 
@@ -87,7 +78,7 @@ void mainTask(void* param) {
 int main() {
 	stdio_init_all();
 
-	mutex = xSemaphoreCreateMutex();
+	mutex_odometry = xSemaphoreCreateMutex();
 
 	xTaskCreate(mainTask, "Main Program", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	vTaskStartScheduler();
@@ -106,15 +97,63 @@ void IMUReader(void* param) {
 	while (true) {
 		sensor1.Update();
 
-		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
-			// #TODO: Apply Frame Transform
-			// #TODO: Remove Gravity Vector
-			fused_odom.Acceleration = sensor1.Acceleration;
-			fused_odom.EulerRate    = sensor1.Gyroscope / 180.0 * PI;
-			xSemaphoreGive(mutex);
+		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
+			// #TODO: Sensor frame -> Body frame
+			odometry.Acceleration = sensor1.Acceleration;
+			odometry.EulerRate    = sensor1.Gyroscope;
+			xSemaphoreGive(mutex_odometry);
 		}
 
 		vTaskDelay(10);
+	}
+}
+
+/**
+ * @brief Updates Odometry with sensor data
+ *
+ * @param param
+ */
+void KinematicEngine(void* param) {
+	TickType_t lastTick = xTaskGetTickCount();
+	while (true) {
+		TickType_t currentTick = xTaskGetTickCount();
+		float deltaTime        = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
+		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
+			Vector3& euler = odometry.Euler;
+
+			// Angular
+			euler += odometry.EulerRate * deltaTime;
+			if (euler.z > PI) euler.z = -PI;
+			else if (euler.z < -PI) euler.z = PI;
+
+			Vector2 accEuler = EulerFromAccel(odometry.Acceleration);
+			euler.x          = EMA(accEuler.x, euler.x, 0.75);
+			euler.y          = EMA(accEuler.y, euler.y, 0.75);
+
+			// Linear
+			// #TODO: Remove Gravity Vector
+			// 1. World frame -> Body frame
+			// 2. Subtract g
+
+			// [0 0 g] [ 0  0 0]
+			// [g 0 0] [ 0 90 0]
+			// [0 g 0] [90  0 0]
+
+			float gx = 9.81 * cosf(euler.y) * cosf(euler.z);
+			float gy = 9.81 * (sinf(euler.x) * sinf(euler.y) * sinf(euler.z) + cosf(euler.x) * cosf(euler.z));
+			float gz = 9.81 * cosf(euler.x) * cosf(euler.y);
+			printf("Gravity: %6.1f %6.1f %6.1f\n", gx, gy, gz);
+			printf("Euler: %6.1f %6.1f %6.1f\n", euler.x, euler.y, euler.z);
+
+			// Truncate
+			odometry.Acceleration.Round(3);
+			odometry.EulerRate.Round(3);
+			odometry.Euler.Round(3);
+			xSemaphoreGive(mutex_odometry);
+		}
+
+		lastTick = currentTick;
+		vTaskDelay(100);
 	}
 }
 

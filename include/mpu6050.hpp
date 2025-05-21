@@ -59,12 +59,12 @@ private:
 
 	// Filters
 	bool useFilters  = true;
-	float alphaAccel = 0.5;
+	float alphaAccel = 0.3;
 	float alphaGyro  = 0.2;
 
 	// Offsets
-	Vector3 OFFSET_ACCELEROMETER = {0.058, 0.004, -0.058};
-	Vector3 OFFSET_GYROSCOPE     = {-2.038, 1.399, -1.329};
+	Vector3 OFFSET_ACCELEROMETER = {0.064, 0.007, -0.053};
+	Vector3 OFFSET_GYROSCOPE     = {-2.038, 1.399, -1.285};
 
 	// Resolution
 	float resForce;

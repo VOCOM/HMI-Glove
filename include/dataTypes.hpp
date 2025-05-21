@@ -14,10 +14,15 @@ struct Vector3 {
 	Vector3 operator*(float rhs);
 	Vector3 operator/(float rhs);
 	Vector3 operator%(float rhs);
+
+	Vector3& operator*=(float rhs);
+	Vector3& operator/=(float rhs);
 	Vector3& operator%=(float rhs);
 
 	Vector3 operator-(Vector3& rhs);
 	Vector3& operator+=(Vector3 rhs);
+
+	void Round(int digits);
 };
 
 struct Odometry {

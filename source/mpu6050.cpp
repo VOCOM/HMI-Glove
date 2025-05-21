@@ -72,6 +72,7 @@ void MPU6050::UpdateAcceleration() {
 	Acceleration.x = ((short)(buffer[0] << 8 | buffer[1])) / resForce - OFFSET_ACCELEROMETER.x;
 	Acceleration.y = ((short)(buffer[2] << 8 | buffer[3])) / resForce - OFFSET_ACCELEROMETER.y;
 	Acceleration.z = ((short)(buffer[4] << 8 | buffer[5])) / resForce - OFFSET_ACCELEROMETER.z;
+	Acceleration *= 9.81;
 
 	if (useFilters == false) return;
 	Acceleration = EMA(Acceleration, old_val, alphaAccel);
@@ -84,6 +85,7 @@ void MPU6050::UpdateGryoscope() {
 	Gyroscope.x = ((short)(buffer[0] << 8 | buffer[1])) / resAngular - OFFSET_GYROSCOPE.x;
 	Gyroscope.y = -(((short)(buffer[2] << 8 | buffer[3])) / resAngular - OFFSET_GYROSCOPE.y);
 	Gyroscope.z = ((short)(buffer[4] << 8 | buffer[5])) / resAngular - OFFSET_GYROSCOPE.z;
+	Gyroscope   = Gyroscope / 180.0 * PI;
 
 	if (useFilters == false) return;
 	Gyroscope = EMA(Gyroscope, old_val, alphaGyro);
