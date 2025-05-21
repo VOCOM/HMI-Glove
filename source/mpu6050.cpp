@@ -79,9 +79,10 @@ void MPU6050::UpdateAcceleration() {
 void MPU6050::UpdateGryoscope() {
 	Vector3 old_val = Gyroscope;
 
+	// North-West-Down -> North-East-Down
 	ReadRegister(REGISTER_GYRO);
 	Gyroscope.x = ((short)(buffer[0] << 8 | buffer[1])) / resAngular - OFFSET_GYROSCOPE.x;
-	Gyroscope.y = ((short)(buffer[2] << 8 | buffer[3])) / resAngular - OFFSET_GYROSCOPE.y;
+	Gyroscope.y = -(((short)(buffer[2] << 8 | buffer[3])) / resAngular - OFFSET_GYROSCOPE.y);
 	Gyroscope.z = ((short)(buffer[4] << 8 | buffer[5])) / resAngular - OFFSET_GYROSCOPE.z;
 
 	if (useFilters == false) return;

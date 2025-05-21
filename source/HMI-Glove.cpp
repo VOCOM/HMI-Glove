@@ -1,6 +1,6 @@
 // C Headers
-#include <math.h>
-#include <stdio.h>
+#include <cmath>
+#include <cstdio>
 
 // Hardware Headers
 #include "hardware/i2c.h"
@@ -54,14 +54,18 @@ void mainTask(void* param) {
 		float deltaTime        = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
 
 		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
-			fused_odom.Euler = fused_odom.EulerRate * deltaTime;
-			// Vector2 eulerAccel = EulerFromAccel(fused_odom.Acceleration);
-			// fused_odom.Euler.x = EMA(eulerAccel.x, fused_odom.Euler.x, 0.75);
-			// fused_odom.Euler.y = EMA(eulerAccel.y, fused_odom.Euler.y, 0.75);
+			fused_odom.Euler += fused_odom.EulerRate * deltaTime;
+			fused_odom.Euler %= PI;
+			Vector2 eulerAccel = EulerFromAccel(fused_odom.Acceleration);
+			fused_odom.Euler.x = EMA(eulerAccel.x, fused_odom.Euler.x, 0.75);
+			fused_odom.Euler.y = EMA(eulerAccel.y, fused_odom.Euler.y, 0.75);
 
 			printf("Fused Odometry\n");
 			printf("Linear\n");
-			printf("Acceleration [%6.1f,%6.1f,%6.1f]m/s^2\n", fused_odom.Acceleration.x, fused_odom.Acceleration.y, fused_odom.Acceleration.z);
+			printf("Acceleration [%6.1f,%6.1f,%6.1f]m/s^2\n",
+			       fused_odom.Acceleration.x * 9.81,
+			       fused_odom.Acceleration.y * 9.81,
+			       fused_odom.Acceleration.z * 9.81);
 
 			printf("Angular\n");
 			printf("Euler Rate   [%6.1f,%6.1f,%6.1f]rad/s\n", fused_odom.EulerRate.x, fused_odom.EulerRate.y, fused_odom.EulerRate.z);
@@ -95,7 +99,6 @@ int main() {
  * @param param
  */
 void IMUReader(void* param) {
-	vTaskDelay(2000);
 	printf("Initializing MPU6050\n");
 	MPU6050 sensor1(i2c_default);
 	// sensor1.Calibrate();
@@ -106,8 +109,8 @@ void IMUReader(void* param) {
 		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
 			// #TODO: Apply Frame Transform
 			// #TODO: Remove Gravity Vector
-			fused_odom.Acceleration = sensor1.Acceleration * 9.81;
-			fused_odom.EulerRate    = sensor1.Gyroscope;
+			fused_odom.Acceleration = sensor1.Acceleration;
+			fused_odom.EulerRate    = sensor1.Gyroscope / 180.0 * PI;
 			xSemaphoreGive(mutex);
 		}
 

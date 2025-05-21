@@ -1,6 +1,10 @@
 #ifndef MPU6050_HPP
 #define MPU6050_HPP
 
+#ifndef PI
+#define PI 3.1415927
+#endif
+
 // Hardware Headers
 #include "hardware/i2c.h"
 
