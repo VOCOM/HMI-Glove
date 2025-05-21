@@ -18,6 +18,7 @@
 // Program Headers
 #include "dataTypes.hpp"
 #include "filters.hpp"
+#include "kinematics.hpp"
 #include "mpu6050.hpp"
 
 void Heartbeat(void*);
@@ -26,8 +27,11 @@ void IMUReader(void*);
 static SemaphoreHandle_t mutex;
 static Odometry fused_odom;
 
-/// @brief HMI-Glove entry point
-/// @param param
+/**
+ * @brief HMI-Glove entry point
+ *
+ * @param param
+ */
 void mainTask(void* param) {
 	// Init WiFi chip
 	cyw43_arch_init();
@@ -35,7 +39,7 @@ void mainTask(void* param) {
 	cyw43_arch_wifi_connect_timeout_ms("HOMER", "92378736", CYW43_AUTH_WPA3_WPA2_AES_PSK, 10000);
 
 	// Init I2C bus
-	i2c_init(i2c_default, 100000);
+	i2c_init(i2c_default, 400000);
 	gpio_set_function(PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C);
 	gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);
 	gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
@@ -50,9 +54,18 @@ void mainTask(void* param) {
 		float deltaTime        = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
 
 		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
+			fused_odom.Euler = fused_odom.EulerRate * deltaTime;
+			// Vector2 eulerAccel = EulerFromAccel(fused_odom.Acceleration);
+			// fused_odom.Euler.x = EMA(eulerAccel.x, fused_odom.Euler.x, 0.75);
+			// fused_odom.Euler.y = EMA(eulerAccel.y, fused_odom.Euler.y, 0.75);
+
 			printf("Fused Odometry\n");
-			printf("Acceleration [%0.1f,%0.1f,%0.1f]m/s^2\n", fused_odom.Acceleration.x, fused_odom.Acceleration.y, fused_odom.Acceleration.z);
-			printf("Orientation  [%0.1f,%0.1f,%0.1f]rad\n", fused_odom.Orientation.x, fused_odom.Orientation.y, fused_odom.Orientation.z);
+			printf("Linear\n");
+			printf("Acceleration [%6.1f,%6.1f,%6.1f]m/s^2\n", fused_odom.Acceleration.x, fused_odom.Acceleration.y, fused_odom.Acceleration.z);
+
+			printf("Angular\n");
+			printf("Euler Rate   [%6.1f,%6.1f,%6.1f]rad/s\n", fused_odom.EulerRate.x, fused_odom.EulerRate.y, fused_odom.EulerRate.z);
+			printf("Euler        [%6.1f,%6.1f,%6.1f]rad\n", fused_odom.Euler.x, fused_odom.Euler.y, fused_odom.Euler.z);
 			printf("\n");
 			xSemaphoreGive(mutex);
 		}
@@ -62,8 +75,11 @@ void mainTask(void* param) {
 	}
 }
 
-/// @brief FreeRTOS entry point
-/// @return
+/**
+ * @brief FreeRTOS entry point
+ *
+ * @return int
+ */
 int main() {
 	stdio_init_all();
 
@@ -73,33 +89,37 @@ int main() {
 	vTaskStartScheduler();
 }
 
+/**
+ * @brief I2C IMU Reader & Fuser
+ *
+ * @param param
+ */
 void IMUReader(void* param) {
+	vTaskDelay(2000);
 	printf("Initializing MPU6050\n");
 	MPU6050 sensor1(i2c_default);
+	// sensor1.Calibrate();
 
 	while (true) {
-		sensor1.UpdateAll();
-
-		// #TODO: Move this into the MPU6050, possibly abstract as static function
-		float roll    = atan2f(sensor1.Acceleration.y, sensor1.Acceleration.z);
-		float x2      = sensor1.Acceleration.x * sensor1.Acceleration.x;
-		float y2      = sensor1.Acceleration.y * sensor1.Acceleration.y;
-		float z2      = sensor1.Acceleration.z * sensor1.Acceleration.z;
-		float gVector = sqrtf(x2 + y2 + z2);
-		float pitch   = asinf(sensor1.Acceleration.x / gVector);
+		sensor1.Update();
 
 		if (xSemaphoreTake(mutex, 0U) == pdTRUE) {
-			fused_odom.Orientation.x = EMA(roll, fused_odom.Orientation.x, 0.5);
-			fused_odom.Orientation.y = EMA(pitch, fused_odom.Orientation.y, 0.5);
+			// #TODO: Apply Frame Transform
 			// #TODO: Remove Gravity Vector
-			fused_odom.Acceleration = EMA(sensor1.Acceleration * 9.81, fused_odom.Acceleration, 0.5);
+			fused_odom.Acceleration = sensor1.Acceleration * 9.81;
+			fused_odom.EulerRate    = sensor1.Gyroscope;
 			xSemaphoreGive(mutex);
 		}
 
-		vTaskDelay(100);
+		vTaskDelay(10);
 	}
 }
 
+/**
+ * @brief Activity Indicator
+ *
+ * @param param
+ */
 void Heartbeat(void* param) {
 	bool state = false;
 	while (true) {

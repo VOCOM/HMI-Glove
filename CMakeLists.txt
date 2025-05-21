@@ -34,14 +34,13 @@ project(HMI-Glove C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# add_subdirectory(rtos)
-
 # Add executable.
 add_executable(${PROJECT_NAME} 
   source/HMI-Glove.cpp
   source/mpu6050.cpp
   source/filters.cpp
   source/dataTypes.cpp
+  source/kinematics.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

@@ -10,7 +10,6 @@
 
 // Program Headers
 #include "dataTypes.hpp"
-#include "filters.hpp"
 
 /**
  * ID: Range | Resolution
@@ -32,33 +31,40 @@ public:
 	MPU6050(i2c_inst_t* bus);
 
 	void Reset();
+	void Calibrate();
+	void Update();
+
 	void SetAccelerationResolution(uint level);
 	void SetGryoscopeResolution(uint level);
-	void UpdateAcceleration();
-	void UpdateGryoscope();
-	void UpdateTemperature();
-	void UpdateAll();
 
 	Vector3 Acceleration;
 	Vector3 Gyroscope;
 	float Temperature;
 
 private:
+	void UpdateAcceleration();
+	void UpdateGryoscope();
+	void UpdateTemperature();
+
 	void WriteRegister(uint8_t address, uint8_t data);
 	void ReadRegister(uint8_t address);
 
 private:
 	i2c_inst_t* bus;
 	uint8_t buffer[6];
-	float alpha;
 
-private: // Offsets
-	static const Vector3 OFFSET_ACCELEROMETER;
-	static const Vector3 OFFSET_GYROSCOPE;
+	// Filters
+	bool useFilters  = true;
+	float alphaAccel = 0.5;
+	float alphaGyro  = 0.2;
 
-private: // Resolution
-	float RESOLUTION_FORCE;
-	float RESOLUTION_ANGULAR;
+	// Offsets
+	Vector3 OFFSET_ACCELEROMETER = {0.058, 0.004, -0.058};
+	Vector3 OFFSET_GYROSCOPE     = {-2.038, 1.399, -1.329};
+
+	// Resolution
+	float resForce;
+	float resAngular;
 
 private: // Addresses
 	static const int I2C_ADDRESS           = 0x68;
