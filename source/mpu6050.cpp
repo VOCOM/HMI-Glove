@@ -14,24 +14,22 @@ void MPU6050::Reset() {
 	WriteRegister(REGISTER_PWR_MGMT, 0x00);
 }
 void MPU6050::Calibrate() {
-	OFFSET_ACCELEROMETER = Vector3();
-	OFFSET_GYROSCOPE     = Vector3();
+	calibrate = true;
 
-	bool oldState = useFilters;
-	useFilters    = false;
-
-	int sampleCount = 15;
+	int sampleCount = 51;
 	Vector3 avgAcc, avgGyr;
 	for (int i = 0; i < sampleCount; i++) {
-		Update();
-		avgAcc += Acceleration;
+		UpdateGryoscope();
 		avgGyr += Gyroscope;
+
+		UpdateAcceleration();
+		avgAcc += Acceleration;
 	}
 	OFFSET_GYROSCOPE     = avgGyr / sampleCount;
 	OFFSET_ACCELEROMETER = avgAcc / sampleCount;
 	OFFSET_ACCELEROMETER.z -= 1; // Gravity
 
-	useFilters = oldState;
+	calibrate = false;
 }
 void MPU6050::Update() {
 	UpdateAcceleration();
@@ -57,26 +55,26 @@ void MPU6050::UpdateAcceleration() {
 	Vector3 old_val = Acceleration;
 
 	ReadRegister(REGISTER_ACCEL);
-	Acceleration.x = ((short)(buffer[0] << 8 | buffer[1])) / resForce - OFFSET_ACCELEROMETER.x;
-	Acceleration.y = ((short)(buffer[2] << 8 | buffer[3])) / resForce - OFFSET_ACCELEROMETER.y;
-	Acceleration.z = ((short)(buffer[4] << 8 | buffer[5])) / resForce - OFFSET_ACCELEROMETER.z;
-	Acceleration *= 9.81;
+	Acceleration.x = ((short)(buffer[0] << 8 | buffer[1])) / resForce;
+	Acceleration.y = ((short)(buffer[2] << 8 | buffer[3])) / resForce;
+	Acceleration.z = ((short)(buffer[4] << 8 | buffer[5])) / resForce;
 
-	if (useFilters == false) return;
-	Acceleration = EMA(Acceleration, old_val, alphaAccel);
+	if (calibrate) return;
+	Acceleration -= OFFSET_ACCELEROMETER;
+	Acceleration = CF(Acceleration, old_val, alphaAccel);
 }
 void MPU6050::UpdateGryoscope() {
 	Vector3 old_val = Gyroscope;
 
-	// North-West-Down -> North-East-Down
 	ReadRegister(REGISTER_GYRO);
-	Gyroscope.x = ((short)(buffer[0] << 8 | buffer[1])) / resAngular - OFFSET_GYROSCOPE.x;
-	Gyroscope.y = -(((short)(buffer[2] << 8 | buffer[3])) / resAngular - OFFSET_GYROSCOPE.y);
-	Gyroscope.z = ((short)(buffer[4] << 8 | buffer[5])) / resAngular - OFFSET_GYROSCOPE.z;
-	Gyroscope   = Gyroscope / 180.0 * PI;
+	Gyroscope.x = ((short)(buffer[0] << 8 | buffer[1])) / resAngular;
+	Gyroscope.y = ((short)(buffer[2] << 8 | buffer[3])) / resAngular;
+	Gyroscope.z = ((short)(buffer[4] << 8 | buffer[5])) / resAngular;
 
-	if (useFilters == false) return;
-	Gyroscope = EMA(Gyroscope, old_val, alphaGyro);
+	if (calibrate) return;
+	Gyroscope -= OFFSET_GYROSCOPE;
+	Gyroscope *= DEG2RAD;
+	Gyroscope = CF(Gyroscope, old_val, alphaGyro);
 }
 void MPU6050::UpdateTemperature() {
 	ReadRegister(REGISTER_TEMP);

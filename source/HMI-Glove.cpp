@@ -23,7 +23,10 @@ void IMUReader(void*);
 void KinematicEngine(void* param);
 
 static SemaphoreHandle_t mutex_odometry;
-static Odometry odometry;
+static Odometry odom;
+
+static Vector3 accelerometer;
+static Vector3 gyroscope;
 
 /**
  * @brief HMI-Glove entry point
@@ -89,15 +92,19 @@ int main() {
 void IMUReader(void* param) {
 	printf("Initializing MPU6050\n");
 	MPU6050 sensor1(i2c_default);
+
+	// vTaskDelay(3000);
 	// sensor1.Calibrate();
+	// printf("Gyro  Offsets %8.3f %8.3f %8.3f\n", sensor1.OFFSET_GYROSCOPE.x, sensor1.OFFSET_GYROSCOPE.y, sensor1.OFFSET_GYROSCOPE.z);
+	// printf("Accel Offsets %8.3f %8.3f %8.3f\n", sensor1.OFFSET_ACCELEROMETER.x, sensor1.OFFSET_ACCELEROMETER.y, sensor1.OFFSET_ACCELEROMETER.z);
 
 	while (true) {
 		sensor1.Update();
 
 		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
 			// #TODO: Sensor frame -> Body frame
-			odometry.Acceleration = sensor1.Acceleration;
-			odometry.EulerRate    = sensor1.Gyroscope;
+			gyroscope     = sensor1.Gyroscope;
+			accelerometer = sensor1.Acceleration;
 			xSemaphoreGive(mutex_odometry);
 		}
 
@@ -114,35 +121,16 @@ void KinematicEngine(void* param) {
 	TickType_t lastTick = xTaskGetTickCount();
 	while (true) {
 		TickType_t currentTick = xTaskGetTickCount();
-		float deltaTime        = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
+		float dt               = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
 		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
-			Vector3& euler = odometry.Euler;
 
-			// Angular
-			euler += odometry.EulerRate * deltaTime;
-			if (euler.z > PI) euler.z = -PI;
-			else if (euler.z < -PI) euler.z = PI;
+			odom.Orientation = IntegrateGyro(odom.Orientation, gyroscope, dt);
+			odom.Orientation = IntegrateAccel(odom.Orientation, accelerometer, 0.1f);
 
-			Vector2 accEuler = EulerFromAccel(odometry.Acceleration);
-			euler.x          = EMA(accEuler.x, euler.x, 0.75);
-			euler.y          = EMA(accEuler.y, euler.y, 0.75);
-
-			// Linear
-			// #TODO: Remove Gravity Vector
-			// 1. World frame -> Body frame
-			Matrix3x3 bodyFrame{Matrix3x3::FromEuler(odometry.Euler)};
-			Vector3 gravity = bodyFrame * G;
-			printf("Gravity (Body Frame)\n");
-			printf("%6.1f %6.1f %6.1f\n", gravity.x, gravity.y, gravity.z);
-
-			printf("Acceleration (Body Frame)\n");
-			printf("%6.1f %6.1f %6.1f\n", odometry.Acceleration.x, odometry.Acceleration.y, odometry.Acceleration.z);
+			printf("Orientation %6.3f %6.3f %6.3f %6.3f %4.0fms\n", odom.Orientation.w, odom.Orientation.x, odom.Orientation.y, odom.Orientation.z, dt * 1000);
 			printf("\n");
 
-			// Truncate
-			odometry.Acceleration.Round(3);
-			odometry.EulerRate.Round(3);
-			odometry.Euler.Round(3);
+			// Linear
 			xSemaphoreGive(mutex_odometry);
 		}
 

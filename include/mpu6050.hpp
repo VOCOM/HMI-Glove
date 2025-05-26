@@ -12,20 +12,24 @@
 #include "math.hpp"
 
 /**
- * ID: Range | Resolution
- * Force
+ * @brief MPU6050 wrapper
+ * Frame axis: ENU [East North Up]
+ * Variance: +-0.2864789 deg/s | 0.005 rad/s
+ *
+ * Full Range | Resolution
+ * Accelerometer
  * 0: +- 2 g | 16384 LSB/g
  * 1: +- 4 g |  8192 LSB/g
  * 2: +- 8 g |  4096 LSB/g
  * 3: +-16 g |  2048 LSB/g
  *
- * Angular
+ * Gyroscope
  * 0: +- 250 deg/s | 131.0 LSB/deg/s
  * 1: +- 500 deg/s |  65.5 LSB/deg/s
  * 2: +-1000 deg/s |  32.8 LSB/deg/s
  * 3: +-2000 deg/s |  16.4 LSB/deg/s
+ *
  */
-
 class MPU6050 {
 public:
 	MPU6050(i2c_inst_t* bus);
@@ -53,14 +57,13 @@ private:
 	i2c_inst_t* bus;
 	uint8_t buffer[6];
 
-	// Filters
-	bool useFilters  = true;
-	float alphaAccel = 0.3;
-	float alphaGyro  = 0.2;
+	bool calibrate   = false;
+	float alphaAccel = 0.1; // 0 > a > 1 | LF <-> HF
+	float alphaGyro  = 0.3; // 0 > a > 1 | LF <-> HF
 
 	// Offsets
-	Vector3 OFFSET_ACCELEROMETER = {0.064, 0.007, -0.053};
-	Vector3 OFFSET_GYROSCOPE     = {-2.038, 1.399, -1.285};
+	Vector3 OFFSET_GYROSCOPE{-2.000, 1.414, -1.330};
+	Vector3 OFFSET_ACCELEROMETER{0.058, 0.006, -0.049};
 
 	// Resolution
 	float resForce;

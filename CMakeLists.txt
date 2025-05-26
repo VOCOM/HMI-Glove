@@ -34,12 +34,11 @@ project(HMI-Glove C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+add_subdirectory(math)
+
 # Add executable.
-add_executable(${PROJECT_NAME} 
-  source/HMI-Glove.cpp
-  source/math.cpp
-  source/mpu6050.cpp
-)
+FILE(GLOB SRC_FILES ${CMAKE_SOURCE_DIR}/source/*.cpp)
+add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC include/
@@ -55,6 +54,7 @@ target_link_libraries(${PROJECT_NAME}
   hardware_i2c
   FreeRTOS-Kernel-Heap4
   pico_cyw43_arch_lwip_sys_freertos
+  Math-Custom
 )
 
 # Modify the below lines to enable/disable output over UART/USB
