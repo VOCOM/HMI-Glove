@@ -45,38 +45,35 @@ public:
 	Vector3 Gyroscope;
 	float Temperature;
 
-private:
-	void UpdateAcceleration();
-	void UpdateGryoscope();
-	void UpdateTemperature();
-
+protected:
 	void WriteRegister(uint8_t address, uint8_t data);
-	void ReadRegister(uint8_t address);
+	void ReadRegister(uint8_t address, uint8_t bytes);
+
+	i2c_inst_t* bus;
+
+	// Addresses
+	static const int I2C_ADDRESS           = 0x68;
+	static const int REGISTER_CONFIG_GYRO  = 0x1B;
+	static const int REGISTER_CONFIG_ACCEL = 0x1C;
+	static const int REGISTER_CONFIG_PIN   = 0X37;
+	static const int REGISTER_MEASUREMENTS = 0x3B;
+	static const int REGISTER_POWER_MGMT   = 0x6B;
 
 private:
-	i2c_inst_t* bus;
-	uint8_t buffer[6];
+	uint8_t buffer[14];
+	bool calibrate{false};
 
-	bool calibrate   = false;
-	float alphaAccel = 0.1; // 0 > a > 1 | LF <-> HF
-	float alphaGyro  = 0.3; // 0 > a > 1 | LF <-> HF
+	// Low Pass Filter Gain
+	float alphaAccel{0.1}; // 0 > a > 1 | LF <-> HF
+	float alphaGyro{0.3};  // 0 > a > 1 | LF <-> HF
 
 	// Offsets
-	Vector3 OFFSET_GYROSCOPE{-2.000, 1.414, -1.330};
-	Vector3 OFFSET_ACCELEROMETER{0.058, 0.006, -0.049};
+	Vector3 offsetGyro{-2.000, 1.414, -1.330};
+	Vector3 offsetAccel{0.058, 0.006, -0.049};
 
 	// Resolution
-	float resForce;
-	float resAngular;
-
-private: // Addresses
-	static const int I2C_ADDRESS           = 0x68;
-	static const int REGISTER_PWR_MGMT     = 0x6B;
-	static const int REGISTER_ACCEL        = 0x3B;
-	static const int REGISTER_ACCEL_CONFIG = 0x1C;
-	static const int REGISTER_GYRO         = 0x43;
-	static const int REGISTER_GYRO_CONFIG  = 0x1B;
-	static const int REGISTER_TEMP         = 0x41;
+	float resolutionAccel;
+	float resolutionGyro;
 };
 
 #endif /* MPU6050 */

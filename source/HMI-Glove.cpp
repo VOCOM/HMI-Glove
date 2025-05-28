@@ -16,11 +16,11 @@
 
 // Program Headers
 #include "math.hpp"
-#include "mpu6050.hpp"
+#include "mpu9250.hpp"
 
 void Heartbeat(void*);
 void ReadIMUs(void*);
-void KinematicEngine(void* param);
+void UpdateOdometry(void* param);
 
 static SemaphoreHandle_t mutex_odometry;
 
@@ -50,7 +50,7 @@ void mainTask(void* param) {
 
 	xTaskCreate(Heartbeat, "Heartbeat", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	xTaskCreate(ReadIMUs, "I2C Reader", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
-	xTaskCreate(KinematicEngine, "Kinematics Engine", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
+	xTaskCreate(UpdateOdometry, "Kinematics Engine", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
 	while (true) {
 		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
@@ -93,7 +93,7 @@ int main() {
  */
 void ReadIMUs(void* param) {
 	printf("Initializing MPU6050\n");
-	MPU6050 sensor1(i2c_default);
+	MPU9250 sensor1(i2c_default);
 
 	// vTaskDelay(3000);
 	// sensor1.Calibrate();
@@ -104,9 +104,11 @@ void ReadIMUs(void* param) {
 		sensor1.Update();
 
 		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
-			// #TODO: Sensor frame -> Body frame
 			gyroscope     = sensor1.Gyroscope;
 			accelerometer = sensor1.Acceleration;
+
+			// printf("Gyro  %6.3f %6.3f %6.3f\n", gyroscope.x, gyroscope.y, gyroscope.z);
+			// printf("Accel %6.3f %6.3f %6.3f\n", accelerometer.x, accelerometer.y, accelerometer.z);
 			xSemaphoreGive(mutex_odometry);
 		}
 
@@ -119,7 +121,7 @@ void ReadIMUs(void* param) {
  *
  * @param param
  */
-void KinematicEngine(void* param) {
+void UpdateOdometry(void* param) {
 	TickType_t lastTick = xTaskGetTickCount();
 	while (true) {
 		TickType_t currentTick = xTaskGetTickCount();
@@ -134,12 +136,12 @@ void KinematicEngine(void* param) {
 			// EKF
 			ekf.Update(gyroscope, accelerometer, Vector3(), dt);
 			Quaternion q = ekf.GetState();
-			printf("EKF   Orientation %6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
+			// printf("EKF   Orientation %6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
 
 			Vector3 e = q.ToVector3();
-			printf("EKF   Orientation %6.3f %6.3f %6.3f\n", e.x, e.y, e.z);
+			// printf("EKF   Orientation %6.3f %6.3f %6.3f\n", e.x, e.y, e.z);
 
-			printf("\n");
+			// printf("\n");
 			xSemaphoreGive(mutex_odometry);
 		}
 
