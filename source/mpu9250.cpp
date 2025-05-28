@@ -3,6 +3,7 @@
 // Public Interface
 
 MPU9250::MPU9250(i2c_inst_t* bus) : MPU6050(bus) {
+	return; // #TODO: Remove when sensors arrive
 
 	// Enable I2C Bypass
 	WriteRegister(REGISTER_CONFIG_PIN, 0x02);
@@ -21,6 +22,8 @@ MPU9250::MPU9250(i2c_inst_t* bus) : MPU6050(bus) {
 
 void MPU9250::Update() {
 	MPU6050::Update();
+
+	return; // #TODO: Remove when sensors arrive
 
 	// Save cycles if data not ready
 	ReadMagnetometer(REGISTER_STATUS_1_MAG, 1);
