@@ -49,9 +49,6 @@ Vector3& Vector3::operator%=(float rhs) {
 
 // Vector Arithmetic
 
-Vector3 Vector3::operator+(Vector3& rhs) const {
-	return Vector3{x + rhs.x, y + rhs.y, z + rhs.z};
-}
 Vector3 Vector3::operator-(Vector3& rhs) const {
 	return Vector3{x - rhs.x, y - rhs.y, z - rhs.z};
 }

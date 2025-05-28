@@ -3,6 +3,16 @@
 
 #include "types.hpp"
 
+template <int N>
+struct SquareMatrix {
+	float data[N][N]{};
+
+	float* operator[](int index) {
+		if (index > N) panic("Index out of bounds!\n");
+		return data[index];
+	}
+};
+
 struct Matrix3x3 {
 	float data[9]{};
 
@@ -11,10 +21,6 @@ struct Matrix3x3 {
 	Vector3 operator*(Vector3 rhs);
 
 	static Matrix3x3 FromEuler(Vector3 angles);
-};
-struct Matrix4x4 {
-	float data[16]{};
-	float& operator[](int index);
 };
 
 #endif /* MATRICES */

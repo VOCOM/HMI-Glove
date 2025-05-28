@@ -29,7 +29,3 @@ Matrix3x3 Matrix3x3::FromEuler(Vector3 angles) {
 	newMat[8] = cr * cp;
 	return newMat;
 }
-
-float& Matrix4x4::operator[](int index) {
-	return data[index];
-}

@@ -27,7 +27,6 @@ struct Vector3 {
 
 	// Vector arithmetic
 
-	Vector3 operator+(Vector3& rhs) const;
 	Vector3 operator-(Vector3& rhs) const;
 
 	Vector3 operator+(Vector3 rhs) const;

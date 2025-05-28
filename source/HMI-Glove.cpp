@@ -19,14 +19,16 @@
 #include "mpu6050.hpp"
 
 void Heartbeat(void*);
-void IMUReader(void*);
+void ReadIMUs(void*);
 void KinematicEngine(void* param);
 
 static SemaphoreHandle_t mutex_odometry;
-static Odometry odom;
 
-static Vector3 accelerometer;
-static Vector3 gyroscope;
+static Vector3 accelerometer{};
+static Vector3 gyroscope{};
+
+static Odometry odom{};
+static EKF ekf{};
 
 /**
  * @brief HMI-Glove entry point
@@ -47,7 +49,7 @@ void mainTask(void* param) {
 	gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
 
 	xTaskCreate(Heartbeat, "Heartbeat", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
-	xTaskCreate(IMUReader, "I2C Reader", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
+	xTaskCreate(ReadIMUs, "I2C Reader", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	xTaskCreate(KinematicEngine, "Kinematics Engine", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
 	while (true) {
@@ -89,7 +91,7 @@ int main() {
  *
  * @param param
  */
-void IMUReader(void* param) {
+void ReadIMUs(void* param) {
 	printf("Initializing MPU6050\n");
 	MPU6050 sensor1(i2c_default);
 
@@ -124,13 +126,20 @@ void KinematicEngine(void* param) {
 		float dt               = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
 		if (xSemaphoreTake(mutex_odometry, 0U) == pdTRUE) {
 
+			// SLERP
 			odom.Orientation = IntegrateGyro(odom.Orientation, gyroscope, dt);
 			odom.Orientation = IntegrateAccel(odom.Orientation, accelerometer, 0.1f);
+			printf("SLERP Orientation %6.3f %6.3f %6.3f %6.3f\n", odom.Orientation.w, odom.Orientation.x, odom.Orientation.y, odom.Orientation.z);
 
-			printf("Orientation %6.3f %6.3f %6.3f %6.3f %4.0fms\n", odom.Orientation.w, odom.Orientation.x, odom.Orientation.y, odom.Orientation.z, dt * 1000);
+			// EKF
+			ekf.Update(gyroscope, accelerometer, Vector3(), dt);
+			Quaternion q = ekf.GetState();
+			printf("EKF   Orientation %6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
+
+			Vector3 e = q.ToVector3();
+			printf("EKF   Orientation %6.3f %6.3f %6.3f\n", e.x, e.y, e.z);
+
 			printf("\n");
-
-			// Linear
 			xSemaphoreGive(mutex_odometry);
 		}
 

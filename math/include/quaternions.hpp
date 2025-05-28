@@ -26,5 +26,6 @@ struct Quaternion {
 
 Quaternion FromVectors(const Vector3& lhs, const Vector3& rhs);
 Quaternion SLERP(Quaternion q1, Quaternion q2, float a);
+Quaternion Derivative(Quaternion q1, Quaternion q2);
 
 #endif /* QUATERNIONS */

@@ -1,3 +1,4 @@
+#include "quaternions.hpp"
 #include "math.hpp"
 
 Quaternion::Quaternion() {}
@@ -106,4 +107,12 @@ Quaternion SLERP(Quaternion q1, Quaternion q2, float a) {
 			s0 * q1.y + s1 * q2.y,
 			s0 * q1.z + s1 * q2.z};
 	return r.Normalize();
+}
+
+Quaternion Derivative(Quaternion q1, Quaternion q2) {
+	return {
+			-q1.x * q2.x - q1.y * q2.y - q1.z * q2.z,
+			q1.w * q2.x + q1.y * q2.z - q1.z * q2.y,
+			q1.w * q2.y - q1.x * q2.z + q1.z * q2.x,
+			q1.w * q2.z + q1.x * q2.y - q1.y * q2.x};
 }
