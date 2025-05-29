@@ -1,3 +1,4 @@
+#include "vectors.hpp"
 #include "math.hpp"
 
 // Scalar Arithmetic
@@ -49,7 +50,7 @@ Vector3& Vector3::operator%=(float rhs) {
 
 // Vector Arithmetic
 
-Vector3 Vector3::operator-(Vector3& rhs) const {
+Vector3 Vector3::operator-(const Vector3& rhs) const {
 	return Vector3{x - rhs.x, y - rhs.y, z - rhs.z};
 }
 
@@ -72,14 +73,6 @@ Vector3& Vector3::operator-=(Vector3 rhs) {
 
 // Methods
 
-void Vector3::Round(int digits) {
-	for (int i = 0; i < digits; i++) *this *= 10;
-	x = round(x);
-	y = round(y);
-	z = round(z);
-	for (int i = 0; i < digits; i++) *this /= 10;
-}
-
 float Vector3::Magnitude() const {
 	float m = sqrtf(x * x + y * y + z * z);
 	return m == INFINITY ? 0 : m;
@@ -95,12 +88,24 @@ Vector3 Vector3::Cross(const Vector3& rhs) const {
 			x * rhs.y - y * rhs.x};
 }
 
+Vector3 Vector3::Rotate(const Quaternion& q) const {
+	Vector3 t{2.0f * (q.y * z - q.z * y),
+	          2.0f * (q.z * x - q.x * z),
+	          2.0f * (q.x * y - q.y * x)};
+
+	Vector3 cross2{q.y * t.z - q.z * t.y,
+	               q.z * t.x - q.x * t.z,
+	               q.x * t.y - q.y * t.x};
+
+	return *this + t * q.w + cross2;
+}
+
 Vector3& Vector3::Normalize() {
 	*this /= Magnitude();
 	return *this;
 }
 
-Quaternion Vector3::ToQuaternion() {
+Quaternion Vector3::ToQuaternion() const {
 	float r2 = x / 2, p2 = y / 2, y2 = z / 2;
 	float cr = cosf(r2), sr = sinf(r2);
 	float cp = cosf(p2), sp = sinf(p2);

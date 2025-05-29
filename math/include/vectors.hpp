@@ -27,21 +27,22 @@ struct Vector3 {
 
 	// Vector arithmetic
 
-	Vector3 operator-(Vector3& rhs) const;
+	Vector3 operator-(const Vector3& rhs) const;
 
 	Vector3 operator+(Vector3 rhs) const;
 
 	Vector3& operator+=(Vector3 rhs);
 	Vector3& operator-=(Vector3 rhs);
 
-	void Round(int digits);
 	Vector3& Normalize();
+
 	float Magnitude() const;
 
 	float Dot(const Vector3& rhs) const;
 	Vector3 Cross(const Vector3& rhs) const;
+	Vector3 Rotate(const Quaternion& q) const;
 
-	Quaternion ToQuaternion();
+	Quaternion ToQuaternion() const;
 };
 
 Vector3 Normalize(const Vector3& vec);

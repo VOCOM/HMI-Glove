@@ -55,6 +55,7 @@ Quaternion& Quaternion::Normalize() {
 	x /= m;
 	y /= m;
 	z /= m;
+	if (w < 0.0f) *this *= -1;
 	return *this;
 }
 
@@ -110,9 +111,9 @@ Quaternion SLERP(Quaternion q1, Quaternion q2, float a) {
 }
 
 Quaternion Derivative(Quaternion q1, Quaternion q2) {
-	return {
-			-q1.x * q2.x - q1.y * q2.y - q1.z * q2.z,
-			q1.w * q2.x + q1.y * q2.z - q1.z * q2.y,
-			q1.w * q2.y - q1.x * q2.z + q1.z * q2.x,
-			q1.w * q2.z + q1.x * q2.y - q1.y * q2.x};
+	return Quaternion{
+			0.5f * (-q1.x * q2.x - q1.y * q2.y - q1.z * q2.z),
+			0.5f * (q1.w * q2.x + q1.y * q2.z - q1.z * q2.y),
+			0.5f * (q1.w * q2.y - q1.x * q2.z + q1.z * q2.x),
+			0.5f * (q1.w * q2.z + q1.x * q2.y - q1.y * q2.x)};
 }

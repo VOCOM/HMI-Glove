@@ -50,8 +50,8 @@ static SemaphoreHandle_t mutex_sensors;
 static PCA9548A* mux;
 static MPU9250* sensors[6];
 
-static Odometry odom{};
-static EKF ekf{};
+static EKF ekfs[6];
+static Odometry odom;
 
 /**
  * @brief HMI-Glove entry point
@@ -75,6 +75,7 @@ void mainTask(void* param) {
 
 	// Init IMUs
 	for (int i = 0; i < 6; i++) {
+		// mux->Select(i);
 		sensors[i] = static_cast<MPU9250*>(pvPortMalloc(sizeof(MPU9250)));
 		sensors[i] = new (sensors[i]) MPU9250(i2c0);
 	}
@@ -108,14 +109,15 @@ int main() {
  * @param param
  */
 void UpdateIMUs(void* param) {
-	printf("Initializing MPU6050\n");
-
 	while (true) {
 		if (xSemaphoreTake(mutex_sensors, 0U) == pdTRUE) {
-			sensors[0]->Update();
+			for (int i = 0; i < 6; i++) {
+				if (i > 0) continue; // Palm Sensor test
 
-			// printf("Gyro  %6.3f %6.3f %6.3f\n", gyroscope.x, gyroscope.y, gyroscope.z);
-			// printf("Accel %6.3f %6.3f %6.3f\n", accelerometer.x, accelerometer.y, accelerometer.z);
+				// mux->Select(i);
+				sensors[i]->Update();
+			}
+
 			xSemaphoreGive(mutex_sensors);
 		}
 
@@ -133,22 +135,35 @@ void UpdateOdometry(void* param) {
 	while (true) {
 		TickType_t currentTick = xTaskGetTickCount();
 		float dt               = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
+
 		if (xSemaphoreTake(mutex_sensors, 0U) == pdTRUE) {
+			for (int i = 0; i < 6; i++) {
+				if (i > 0) continue; // Palm Sensor test
 
-			// SLERP
-			odom.Orientation = IntegrateGyro(odom.Orientation, sensors[0]->Gyroscope, dt);
-			odom.Orientation = IntegrateAccel(odom.Orientation, sensors[0]->Acceleration, 0.1f);
-			printf("SLERP Orientation %6.3f %6.3f %6.3f %6.3f\n", odom.Orientation.w, odom.Orientation.x, odom.Orientation.y, odom.Orientation.z);
+				// SLERP
+				odom.Orientation    = IntegrateGyro(odom.Orientation, sensors[i]->Gyroscope, dt);
+				odom.Orientation    = IntegrateAccel(odom.Orientation, sensors[i]->Acceleration, 0.1f);
+				const Quaternion& o = odom.Orientation;
+				const Vector3& a    = sensors[i]->Acceleration;
+				const Vector3& g    = sensors[i]->Gyroscope;
 
-			// EKF
-			ekf.Update(sensors[0]->Gyroscope, sensors[0]->Acceleration, Vector3(), dt);
-			Quaternion q = ekf.GetState();
-			// printf("EKF   Orientation %6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
+				// EKF
+				EKF& e = ekfs[i];
+				e.Update(sensors[i]->Gyroscope, sensors[i]->Acceleration, UnitY, dt);
+				const Quaternion& q = e.GetState();
 
-			Vector3 e = q.ToVector3();
-			// printf("EKF   Orientation %6.3f %6.3f %6.3f\n", e.x, e.y, e.z);
+				printf("SLERP[%d]\n", i);
+				printf("Acceleration     %6.3f %6.3f %6.3f\n", a.x, a.y, a.z);
+				printf("Gyroscope        %6.3f %6.3f %6.3f\n", g.x, g.y, g.z);
+				printf("Orientation      %6.3f %6.3f %6.3f %6.3f\n", o.w, o.x, o.y, o.z);
 
-			// printf("\n");
+				printf("EKF  [%d]\n", i);
+				printf("Gyro Bias        %6.3f %6.3f %6.3f\n", i, e.B.x, e.B.y, e.B.z);
+				printf("Orientation      %6.3f %6.3f %6.3f %6.3f\n", i, q.w, q.x, q.y, q.z);
+				printf("State Covariance %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f\n", i, e.P[0][0], e.P[1][1], e.P[2][2], e.P[3][3], e.P[4][4], e.P[5][5], e.P[6][6]);
+			}
+			printf("\n");
+
 			xSemaphoreGive(mutex_sensors);
 		}
 

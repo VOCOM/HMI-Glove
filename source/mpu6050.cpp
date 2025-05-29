@@ -37,15 +37,15 @@ void MPU6050::Update() {
 
 	ReadRegister(REGISTER_MEASUREMENTS, 14);
 
-	Acceleration.x = ((short)(buffer[0] << 8 | buffer[1])) / resolutionAccel;
-	Acceleration.y = ((short)(buffer[2] << 8 | buffer[3])) / resolutionAccel;
-	Acceleration.z = ((short)(buffer[4] << 8 | buffer[5])) / resolutionAccel;
+	Acceleration.x = (int16_t)(buffer[0] << 8U | buffer[1]) / resolutionAccel;
+	Acceleration.y = (int16_t)(buffer[2] << 8U | buffer[3]) / resolutionAccel;
+	Acceleration.z = (int16_t)(buffer[4] << 8U | buffer[5]) / resolutionAccel;
 
-	Temperature = ((int16_t)(buffer[6] << 8 | buffer[7]) / 340.0) + 36.53;
+	Temperature = ((int16_t)(buffer[6] << 8U | buffer[7]) / 340.0) + 36.53;
 
-	Gyroscope.x = ((short)(buffer[8] << 8 | buffer[9])) / resolutionGyro;
-	Gyroscope.y = ((short)(buffer[10] << 8 | buffer[11])) / resolutionGyro;
-	Gyroscope.z = ((short)(buffer[12] << 8 | buffer[13])) / resolutionGyro;
+	Gyroscope.x = (int16_t)(buffer[8] << 8U | buffer[9]) / resolutionGyro;
+	Gyroscope.y = (int16_t)(buffer[10] << 8U | buffer[11]) / resolutionGyro;
+	Gyroscope.z = (int16_t)(buffer[12] << 8U | buffer[13]) / resolutionGyro;
 
 	if (calibrate) return;
 	Acceleration -= offsetAccel;

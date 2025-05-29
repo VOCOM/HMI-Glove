@@ -13,7 +13,6 @@
 
 /**
  * @brief MPU6050 wrapper
- * Frame axis: ENU [East North Up]
  * Variance: +-0.2864789 deg/s | 0.005 rad/s
  *
  * Full Range | Resolution
