@@ -6,6 +6,12 @@
 Quaternion IntegrateGyro(Quaternion current, Vector3 gyro, float dt);
 Quaternion IntegrateAccel(Quaternion currrent, Vector3 accel, float a);
 
+/**
+ * @brief Extended Kalman Filter
+ *
+ * Uses ENU Frame
+ *
+ */
 class EKF {
 public:
 	void Update(Vector3 gyro, Vector3 accel, Vector3 mag, float dt);
@@ -13,7 +19,7 @@ public:
 
 	EKF();
 
-public:
+private:
 	Quaternion q        = {1, 0, 0, 0}; // Current State
 	const float Q_STATE = EPSILON;      // State Noise         (Prediction Trust)
 	const float Q_GYRO  = EPSILON;      // Gyroscope Noise     (Prediction Trust)

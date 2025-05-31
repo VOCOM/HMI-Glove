@@ -21,7 +21,7 @@ struct Quaternion {
 
 	Quaternion& Normalize();
 
-	Vector3 ToVector3();
+	Vector3 ToVector3() const;
 };
 
 Quaternion FromVectors(const Vector3& lhs, const Vector3& rhs);

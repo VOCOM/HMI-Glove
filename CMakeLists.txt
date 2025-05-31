@@ -36,9 +36,17 @@ pico_sdk_init()
 
 add_subdirectory(math)
 
+# BTstack
+FILE(GLOB BTSTACK_SRC_FILES 
+  btstack/src/ble/*.c
+)
+
 # Add executable.
 FILE(GLOB SRC_FILES ${CMAKE_SOURCE_DIR}/source/*.cpp)
-add_executable(${PROJECT_NAME} ${SRC_FILES})
+add_executable(${PROJECT_NAME} 
+  ${SRC_FILES}
+  ${BTSTACK_SRC_FILES}
+)
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC include/
@@ -54,8 +62,11 @@ target_link_libraries(${PROJECT_NAME}
   hardware_i2c
   FreeRTOS-Kernel-Heap4
   pico_cyw43_arch_lwip_sys_freertos
+  pico_btstack_cyw43
   Math-Custom
 )
+
+pico_btstack_make_gatt_header(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include/le_peripheral.gatt")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(${PROJECT_NAME} 0)

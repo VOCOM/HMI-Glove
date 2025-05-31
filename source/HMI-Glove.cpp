@@ -16,35 +16,40 @@
  * 5: Pinky
  */
 
-// C++ Headers
+// C++
 #include <new>
 
-// PICO C Headers
+// PICO C
 #include "pico/stdio.h"
 #include "pico/stdlib.h"
 
-// Hardware Headers
+// Hardware
 #include "hardware/i2c.h"
 #include "pico/cyw43_arch.h"
 
-// OS Headers
+// OS
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"
 
-// Network Headers
+// Network
 #include "lwipopts.h"
 
-// Program Headers
+// Bluetooth
+#include "btstack.h"
+
+// Program
+#include "bleService.hpp"
 #include "math.hpp"
 #include "mpu9250.hpp"
 #include "pca9548a.hpp"
 
 constexpr uint I2C_RATE_HZ{400 * 1000};
 
-void Heartbeat(void*);
 void UpdateIMUs(void*);
 void UpdateOdometry(void* param);
+void BluetoothService(void*);
+void Heartbeat(void*);
 
 static SemaphoreHandle_t mutex_sensors;
 static PCA9548A* mux;
@@ -53,14 +58,23 @@ static MPU9250* sensors[6];
 static EKF ekfs[6];
 static Odometry odom;
 
+static BLEService bleService;
+
 /**
  * @brief HMI-Glove entry point
  *
  * @param param
  */
 void mainTask(void* param) {
-	// Init Wifi Chip
+	// Init Wifi/BLE Chip
 	cyw43_arch_init();
+
+	// Init BTstack
+	l2cap_init();
+	sm_init();
+	// sm_set_secure_connections_only_mode(true);
+	// sm_set_io_capabilities(IO_CAPABILITY_KEYBOARD_ONLY);
+	// sm_set_authentication_requirements(SM_AUTHREQ_SECURE_CONNECTION | SM_AUTHREQ_MITM_PROTECTION | SM_AUTHREQ_BONDING);
 
 	// Init I2C bus
 	i2c_init(i2c_default, I2C_RATE_HZ);
@@ -81,11 +95,13 @@ void mainTask(void* param) {
 	}
 
 	xTaskCreate(Heartbeat, "Heartbeat", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
+	xTaskCreate(BluetoothService, "Bluetooth", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	xTaskCreate(UpdateIMUs, "I2C Reader", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	xTaskCreate(UpdateOdometry, "Kinematics Engine", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
 	while (true) {
-		vTaskDelay(1000);
+		bleService.Publish();
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}
 }
 
@@ -121,7 +137,7 @@ void UpdateIMUs(void* param) {
 			xSemaphoreGive(mutex_sensors);
 		}
 
-		vTaskDelay(10);
+		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}
 }
 
@@ -144,32 +160,35 @@ void UpdateOdometry(void* param) {
 				odom.Orientation    = IntegrateGyro(odom.Orientation, sensors[i]->Gyroscope, dt);
 				odom.Orientation    = IntegrateAccel(odom.Orientation, sensors[i]->Acceleration, 0.1f);
 				const Quaternion& o = odom.Orientation;
-				const Vector3& a    = sensors[i]->Acceleration;
-				const Vector3& g    = sensors[i]->Gyroscope;
+				const Vector3 v     = o.ToVector3();
 
 				// EKF
 				EKF& e = ekfs[i];
 				e.Update(sensors[i]->Gyroscope, sensors[i]->Acceleration, UnitY, dt);
 				const Quaternion& q = e.GetState();
+				const Vector3 vQ    = q.ToVector3();
 
-				printf("SLERP[%d]\n", i);
-				printf("Acceleration     %6.3f %6.3f %6.3f\n", a.x, a.y, a.z);
-				printf("Gyroscope        %6.3f %6.3f %6.3f\n", g.x, g.y, g.z);
-				printf("Orientation      %6.3f %6.3f %6.3f %6.3f\n", o.w, o.x, o.y, o.z);
+				// printf("SLERP[%d]\n", i);
+				// printf("Euler       %6.3f %6.3f %6.3f\n", v.x, v.y, v.z);
+				// printf("Orientation %6.3f %6.3f %6.3f %6.3f\n", o.w, o.x, o.y, o.z);
 
-				printf("EKF  [%d]\n", i);
-				printf("Gyro Bias        %6.3f %6.3f %6.3f\n", i, e.B.x, e.B.y, e.B.z);
-				printf("Orientation      %6.3f %6.3f %6.3f %6.3f\n", i, q.w, q.x, q.y, q.z);
-				printf("State Covariance %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f\n", i, e.P[0][0], e.P[1][1], e.P[2][2], e.P[3][3], e.P[4][4], e.P[5][5], e.P[6][6]);
+				// printf("EKF  [%d]\n", i);
+				// printf("Euler       %6.3f %6.3f %6.3f\n", vQ.x, vQ.y, vQ.z);
+				// printf("Orientation %6.3f %6.3f %6.3f %6.3f\n", i, q.w, q.x, q.y, q.z);
 			}
-			printf("\n");
+			// printf("\n");
 
 			xSemaphoreGive(mutex_sensors);
 		}
 
 		lastTick = currentTick;
-		vTaskDelay(100);
+		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}
+}
+
+void BluetoothService(void*) {
+	bleService.Init("HMI Glove");
+	bleService.Start();
 }
 
 /**
@@ -182,6 +201,6 @@ void Heartbeat(void* param) {
 	while (true) {
 		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, state);
 		state ^= true;
-		vTaskDelay(1000);
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}
 }

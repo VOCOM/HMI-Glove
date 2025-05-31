@@ -59,7 +59,7 @@ Quaternion& Quaternion::Normalize() {
 	return *this;
 }
 
-Vector3 Quaternion::ToVector3() {
+Vector3 Quaternion::ToVector3() const {
 	Vector3 newVec{};
 	newVec.x = atan2f(2.0f * (w * x + y * z), 1.0f - 2.0f * (x * x + y * y));
 	newVec.y = asinf(2.0f * (w * y - z * x));
