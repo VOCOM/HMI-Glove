@@ -46,19 +46,21 @@
 
 constexpr uint I2C_RATE_HZ{400 * 1000};
 
-void UpdateIMUs(void*);
+void UpdateIMUs(void* param);
 void UpdateOdometry(void* param);
-void BluetoothService(void*);
-void Heartbeat(void*);
+void BluetoothService(void* param);
+void BluetoothUpdate(void* param);
+void Heartbeat(void* param);
 
 static SemaphoreHandle_t mutex_sensors;
 static PCA9548A* mux;
 static MPU9250* sensors[6];
 
+static SemaphoreHandle_t mutex_ekf;
 static EKF ekfs[6];
 static Odometry odom;
 
-static BLEService bleService;
+static BLEService ble;
 
 /**
  * @brief HMI-Glove entry point
@@ -72,9 +74,6 @@ void mainTask(void* param) {
 	// Init BTstack
 	l2cap_init();
 	sm_init();
-	// sm_set_secure_connections_only_mode(true);
-	// sm_set_io_capabilities(IO_CAPABILITY_KEYBOARD_ONLY);
-	// sm_set_authentication_requirements(SM_AUTHREQ_SECURE_CONNECTION | SM_AUTHREQ_MITM_PROTECTION | SM_AUTHREQ_BONDING);
 
 	// Init I2C bus
 	i2c_init(i2c_default, I2C_RATE_HZ);
@@ -100,8 +99,7 @@ void mainTask(void* param) {
 	xTaskCreate(UpdateOdometry, "Kinematics Engine", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
 	while (true) {
-		bleService.Publish();
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		vTaskDelay(1000 * portTICK_PERIOD_MS);
 	}
 }
 
@@ -114,6 +112,7 @@ int main() {
 	stdio_init_all();
 
 	mutex_sensors = xSemaphoreCreateMutex();
+	mutex_ekf     = xSemaphoreCreateMutex();
 
 	xTaskCreate(mainTask, "Main Program", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 	vTaskStartScheduler();
@@ -133,11 +132,10 @@ void UpdateIMUs(void* param) {
 				// mux->Select(i);
 				sensors[i]->Update();
 			}
-
 			xSemaphoreGive(mutex_sensors);
 		}
 
-		vTaskDelay(10 / portTICK_PERIOD_MS);
+		vTaskDelay(10 * portTICK_PERIOD_MS);
 	}
 }
 
@@ -153,42 +151,60 @@ void UpdateOdometry(void* param) {
 		float dt               = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
 
 		if (xSemaphoreTake(mutex_sensors, 0U) == pdTRUE) {
-			for (int i = 0; i < 6; i++) {
-				if (i > 0) continue; // Palm Sensor test
+			if (xSemaphoreTake(mutex_ekf, 0U) == pdTRUE) {
+				for (int i = 0; i < 6; i++) {
+					if (i > 0) continue; // Palm Sensor test
 
-				// SLERP
-				odom.Orientation    = IntegrateGyro(odom.Orientation, sensors[i]->Gyroscope, dt);
-				odom.Orientation    = IntegrateAccel(odom.Orientation, sensors[i]->Acceleration, 0.1f);
-				const Quaternion& o = odom.Orientation;
-				const Vector3 v     = o.ToVector3();
+					// SLERP
+					odom.Orientation = IntegrateGyro(odom.Orientation, sensors[i]->Gyroscope, dt);
+					odom.Orientation = IntegrateAccel(odom.Orientation, sensors[i]->Acceleration, 0.1f);
 
-				// EKF
-				EKF& e = ekfs[i];
-				e.Update(sensors[i]->Gyroscope, sensors[i]->Acceleration, UnitY, dt);
-				const Quaternion& q = e.GetState();
-				const Vector3 vQ    = q.ToVector3();
-
-				// printf("SLERP[%d]\n", i);
-				// printf("Euler       %6.3f %6.3f %6.3f\n", v.x, v.y, v.z);
-				// printf("Orientation %6.3f %6.3f %6.3f %6.3f\n", o.w, o.x, o.y, o.z);
-
-				// printf("EKF  [%d]\n", i);
-				// printf("Euler       %6.3f %6.3f %6.3f\n", vQ.x, vQ.y, vQ.z);
-				// printf("Orientation %6.3f %6.3f %6.3f %6.3f\n", i, q.w, q.x, q.y, q.z);
+					// EKF
+					ekfs[i].Update(sensors[i]->Gyroscope, sensors[i]->Acceleration, UnitY, dt);
+				}
+				xSemaphoreGive(mutex_ekf);
 			}
-			// printf("\n");
-
 			xSemaphoreGive(mutex_sensors);
 		}
-
 		lastTick = currentTick;
-		vTaskDelay(10 / portTICK_PERIOD_MS);
+		vTaskDelay(10 * portTICK_PERIOD_MS);
 	}
 }
 
-void BluetoothService(void*) {
-	bleService.Init("HMI Glove");
-	bleService.Start();
+/**
+ * @brief Bluetooth LE Service
+ *
+ */
+void BluetoothService(void* param) {
+	ble.Init("HMI Glove");
+
+	xTaskCreate(BluetoothUpdate, "BLE Update", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
+
+	ble.Start();
+}
+
+uint16_t PackQuaternionW(float val) {
+	return val * 65535.0f;
+}
+uint16_t PackQuaternionXYZ(float val) {
+	return (val + 1.0f) * 32767.5f;
+}
+
+/**
+ * @brief Data Notification Service
+ *
+ */
+void BluetoothUpdate(void* param) {
+	while (true) {
+		if (xSemaphoreTake(mutex_ekf, 0U) == pdTRUE) {
+			const Quaternion& q = ekfs[0].GetState();
+			ble.Publish(q, xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+			// printf("%6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
+			xSemaphoreGive(mutex_ekf);
+		}
+		vTaskDelay(20 * portTICK_PERIOD_MS);
+	}
 }
 
 /**
@@ -201,6 +217,6 @@ void Heartbeat(void* param) {
 	while (true) {
 		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, state);
 		state ^= true;
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		vTaskDelay(1000 * portTICK_PERIOD_MS);
 	}
 }

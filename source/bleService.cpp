@@ -38,13 +38,18 @@ void BLEService::Start() {
 	btstack_run_loop_execute();
 }
 
-void BLEService::Publish() {
+void BLEService::Publish(const Quaternion& o, uint32_t timestamp) {
 	if (connectionHandle == HCI_CON_HANDLE_INVALID) return;
 
-	const uint8_t dummyVal[] = "Hello";
+	packetSize = 0;
+	AddToPacket(timestamp);
+	AddToPacket(PackQuaternionW(o.w));
+	AddToPacket(PackQuaternionXYZ(o.x));
+	AddToPacket(PackQuaternionXYZ(o.y));
+	AddToPacket(PackQuaternionXYZ(o.z));
+
 	if (att_server_can_send_packet_now(connectionHandle)) {
-		att_server_notify(connectionHandle, ATT_CHARACTERISTIC_00000001_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE, dummyVal, sizeof(dummyVal));
-		printf("Sending\n");
+		att_server_notify(connectionHandle, ATT_CHARACTERISTIC_00000001_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE, packet, packetSize);
 	} else {
 		att_server_request_can_send_now_event(connectionHandle);
 	}
@@ -70,12 +75,9 @@ void BLEService::HCIPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t
 }
 void BLEService::ATTPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size) {
 	if (packet_type != HCI_EVENT_PACKET) return;
-	const uint8_t dummyVal[] = "Delayed Hello";
 
 	switch (hci_event_packet_get_type(packet)) {
 	case ATT_EVENT_CAN_SEND_NOW:
-		att_server_notify(connectionHandle, ATT_CHARACTERISTIC_00000001_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE, dummyVal, sizeof(dummyVal));
-		printf("Sending delayed\n");
 		break;
 	default:
 		break;
@@ -84,7 +86,6 @@ void BLEService::ATTPacketHandler(uint8_t packet_type, uint16_t channel, uint8_t
 
 uint16_t BLEService::ATTReadCallback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t* buffer, uint16_t buffer_size) {
 	if (att_handle == ATT_CHARACTERISTIC_00000001_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE) {
-		// uint16_t ret = att_read_callback_handle_little_endian_16(led_brightness, offset, buffer, buffer_size);
 		return 0;
 	}
 
@@ -92,4 +93,25 @@ uint16_t BLEService::ATTReadCallback(hci_con_handle_t connection_handle, uint16_
 }
 int BLEService::ATTWriteCallback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t transaction_mode, uint16_t offset, uint8_t* buffer, uint16_t buffer_size) {
 	return 0;
+}
+
+uint16_t BLEService::PackQuaternionW(float val) {
+	return val * 65535.0f;
+}
+uint16_t BLEService::PackQuaternionXYZ(float val) {
+	return (val + 1.0f) * 32767.5f;
+}
+
+void BLEService::AddToPacket(uint8_t data) {
+	packet[packetSize++] = data;
+}
+void BLEService::AddToPacket(uint16_t data) {
+	packet[packetSize++] = data;
+	packet[packetSize++] = data >> 8;
+}
+void BLEService::AddToPacket(uint32_t data) {
+	for (int i = 0; i < 4; i++) {
+		packet[packetSize++] = data;
+		data >>= 8;
+	}
 }

@@ -4,7 +4,10 @@
 #include "types.hpp"
 
 struct Quaternion {
-	float w{}, x{}, y{}, z{};
+	float w{};
+	float x{};
+	float y{};
+	float z{};
 
 	Quaternion();
 	Quaternion(float w, float x, float y, float z);
