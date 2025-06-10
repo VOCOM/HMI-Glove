@@ -58,7 +58,7 @@ static MPU9250* sensors[6];
 
 static SemaphoreHandle_t mutex_ekf;
 static EKF ekfs[6];
-static Odometry odom;
+static Pose poses[6];
 
 static BLEService ble;
 
@@ -155,12 +155,18 @@ void UpdateOdometry(void* param) {
 				for (int i = 0; i < 6; i++) {
 					if (i > 0) continue; // Palm Sensor test
 
-					// SLERP
-					odom.Orientation = IntegrateGyro(odom.Orientation, sensors[i]->Gyroscope, dt);
-					odom.Orientation = IntegrateAccel(odom.Orientation, sensors[i]->Acceleration, 0.1f);
+					// Mahony Filter
+					poses[i].Orientation = IntegrateGyro(poses[i].Orientation, sensors[i]->Gyroscope, dt);
+					poses[i].Orientation = IntegrateAccel(poses[i].Orientation, sensors[i]->Acceleration, 0.1f);
 
 					// EKF
 					ekfs[i].Update(sensors[i]->Gyroscope, sensors[i]->Acceleration, UnitY, dt);
+
+					// const Quaternion& o = odom.Orientation;
+					// const Quaternion& q = ekfs[i].GetState();
+					// printf("SLERP %6.3f %6.3f %6.3f %6.3f\n", o.w, o.x, o.y, o.z);
+					// printf("EKF   %6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
+					// printf("\n");
 				}
 				xSemaphoreGive(mutex_ekf);
 			}
@@ -176,18 +182,11 @@ void UpdateOdometry(void* param) {
  *
  */
 void BluetoothService(void* param) {
-	ble.Init("HMI Glove");
+	ble.Init("HMI Glove R");
 
 	xTaskCreate(BluetoothUpdate, "BLE Update", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
 
 	ble.Start();
-}
-
-uint16_t PackQuaternionW(float val) {
-	return val * 65535.0f;
-}
-uint16_t PackQuaternionXYZ(float val) {
-	return (val + 1.0f) * 32767.5f;
 }
 
 /**
@@ -197,10 +196,9 @@ uint16_t PackQuaternionXYZ(float val) {
 void BluetoothUpdate(void* param) {
 	while (true) {
 		if (xSemaphoreTake(mutex_ekf, 0U) == pdTRUE) {
-			const Quaternion& q = ekfs[0].GetState();
-			ble.Publish(q, xTaskGetTickCount() * portTICK_PERIOD_MS);
+			ble.Publish(poses, xTaskGetTickCount() * portTICK_PERIOD_MS);
 
-			// printf("%6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
+			// printf("%6.3f %6.3f %6.3f %6.3f\n", poses[0].Orientation.w, poses[0].Orientation.x, poses[0].Orientation.y, poses[0].Orientation.z);
 			xSemaphoreGive(mutex_ekf);
 		}
 		vTaskDelay(20 * portTICK_PERIOD_MS);

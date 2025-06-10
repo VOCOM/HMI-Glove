@@ -23,14 +23,9 @@ constexpr Vector3 UnitX = {1, 0, 0};
 constexpr Vector3 UnitY = {0, 1, 0};
 constexpr Vector3 UnitZ = {0, 0, 1};
 
-struct Odometry {
-	// Linear
-	Vector3 Displacement;
-	Vector3 Velocity;
-	Vector3 Acceleration;
-
-	// Angular
-	Quaternion Orientation{1, 0, 0, 0};
+struct Pose {
+	Vector3 Position       = {};
+	Quaternion Orientation = {1, 0, 0, 0};
 };
 
 #include "filters.hpp"
