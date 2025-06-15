@@ -22,7 +22,7 @@ public:
 private:
 	i2c_inst_t* bus;
 	uint8_t i2cAddress;
-	uint8_t currentChannel{};
+	uint8_t currentChannel = -1;
 };
 
 #endif /* PCA9548A */

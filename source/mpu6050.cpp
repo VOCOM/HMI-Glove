@@ -1,8 +1,9 @@
 #include "mpu6050.hpp"
+#include "icm20948.hpp"
 
 // Public Interface
 
-MPU6050::MPU6050(i2c_inst_t* bus) : bus(bus) {
+MPU6050::MPU6050(i2c_inst_t* bus) : bus(bus), Acceleration(), Gyroscope() {
 	Reset();
 	SetAccelerationResolution(0);
 	SetGryoscopeResolution(0);

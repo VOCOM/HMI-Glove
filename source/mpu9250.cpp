@@ -1,12 +1,17 @@
 #include "mpu9250.hpp"
 
+#include "pico/cyw43_arch.h"
+
 // Public Interface
 
-MPU9250::MPU9250(i2c_inst_t* bus) : MPU6050(bus) {
-	return; // #TODO: Remove when sensors arrive
-
-	// Enable I2C Bypass
+MPU9250::MPU9250(i2c_inst_t* bus) : MPU6050(bus), Magnetometer() {
+	// Enable I2C bypass
 	WriteRegister(REGISTER_CONFIG_PIN, 0x02);
+
+	ReadRegister(117, 1);
+	printf("WHOAMI 0x%X\n", MPU6050::buffer[0]);
+
+	return;
 
 	// Obtain sensitivity adjustment in Fuse ROM mode
 	WriteMagnetometer(REGISTER_CONTROL_MAG, 0x0F);
@@ -23,23 +28,22 @@ MPU9250::MPU9250(i2c_inst_t* bus) : MPU6050(bus) {
 void MPU9250::Update() {
 	MPU6050::Update();
 
-	return; // #TODO: Remove when sensors arrive
+	return;
 
 	// Save cycles if data not ready
 	ReadMagnetometer(REGISTER_STATUS_1_MAG, 1);
-	if (!(buffer[0] & 0x01)) return;
-
-	ReadMagnetometer(REGISTER_MEASUREMENTS_MAG, 7);
+	if (!(buffer[0])) return;
 
 	// Flush stale data
-	if (!(buffer[6] & 0x08)) return;
+	ReadMagnetometer(REGISTER_MEASUREMENTS_MAG, 7);
+	if (buffer[6] & 0x08) return;
 
-	Magnetometer.x = (short)(buffer[1] << 8 | buffer[0]) * asa.x;
-	Magnetometer.y = (short)(buffer[3] << 8 | buffer[2]) * asa.y;
-	Magnetometer.z = (short)(buffer[5] << 8 | buffer[4]) * asa.z;
+	Magnetometer.x = (short)(buffer[1] << 8 | buffer[0]); // * asa.x;
+	Magnetometer.y = (short)(buffer[3] << 8 | buffer[2]); // * asa.y;
+	Magnetometer.z = (short)(buffer[5] << 8 | buffer[4]); // * asa.z;
 
 	// #TODO: Selectable resolution
-	Magnetometer *= 0.15;
+	// Magnetometer *= 0.15;
 }
 
 // Protected Interface

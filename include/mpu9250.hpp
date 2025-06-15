@@ -48,7 +48,6 @@ private:
 	void ReadMagnetometer(uint8_t address, uint8_t bytes);
 
 	uint8_t buffer[7];
-
 	Vector3 asa;
 };
 

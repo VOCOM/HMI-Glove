@@ -56,10 +56,12 @@ protected:
 	static const int REGISTER_CONFIG_ACCEL = 0x1C;
 	static const int REGISTER_CONFIG_PIN   = 0X37;
 	static const int REGISTER_MEASUREMENTS = 0x3B;
+	static const int REGISTER_USER_CONTROL = 0x6A;
 	static const int REGISTER_POWER_MGMT   = 0x6B;
 
-private:
 	uint8_t buffer[14];
+
+private:
 	bool calibrate{false};
 
 	// Low Pass Filter Gain
@@ -67,8 +69,8 @@ private:
 	float alphaGyro{0.3};  // 0 > a > 1 | LF <-> HF
 
 	// Offsets
-	Vector3 offsetGyro{-2.000, 1.414, -1.330};
-	Vector3 offsetAccel{0.058, 0.006, -0.049};
+	Vector3 offsetGyro{};  //{-2.000, 1.414, -1.330};
+	Vector3 offsetAccel{}; //{0.058, 0.006, -0.049};
 
 	// Resolution
 	float resolutionAccel;

@@ -82,13 +82,17 @@ void mainTask(void* param) {
 	gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
 	gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
 
+	vTaskDelay(1000);
+
 	// Init Mux
 	mux = static_cast<PCA9548A*>(pvPortMalloc(sizeof(PCA9548A)));
 	mux = new (mux) PCA9548A(i2c0, 0x70);
 
 	// Init IMUs
 	for (int i = 0; i < 6; i++) {
-		// mux->Select(i);
+		if (i > 0) continue;
+
+		// mux->Select(i + 2);
 		sensors[i] = static_cast<MPU9250*>(pvPortMalloc(sizeof(MPU9250)));
 		sensors[i] = new (sensors[i]) MPU9250(i2c0);
 	}
@@ -127,10 +131,19 @@ void UpdateIMUs(void* param) {
 	while (true) {
 		if (xSemaphoreTake(mutex_sensors, 0U) == pdTRUE) {
 			for (int i = 0; i < 6; i++) {
-				if (i > 0) continue; // Palm Sensor test
+				if (i > 0) continue;
 
-				// mux->Select(i);
-				sensors[i]->Update();
+				// mux->Select(i + 2);
+				// sensors[i]->Update();
+
+				const Vector3& a = sensors[i]->Acceleration;
+				const Vector3& v = sensors[i]->Gyroscope;
+				const Vector3& m = sensors[i]->Magnetometer;
+
+				// printf("Accel %6.3f %6.3f %6.3f\n", a.x, a.y, a.z);
+				// printf("Gyro  %6.3f %6.3f %6.3f\n", v.x, v.y, v.z);
+				// printf("Mag   %6.3f %6.3f %6.3f\n", m.x, m.y, m.z);
+				// printf("\n");
 			}
 			xSemaphoreGive(mutex_sensors);
 		}
