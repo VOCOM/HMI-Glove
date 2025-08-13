@@ -3,6 +3,9 @@
 
 Quaternion::Quaternion() {}
 Quaternion::Quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
+Quaternion::Quaternion(float x, float y, float z) {
+	*this = Vector3{x, y, z}.ToQuaternion();
+}
 Quaternion::Quaternion(const Vector3& axis, float angle) {
 	float halfAngle = angle / 2.0f;
 	float sinHalf   = sinf(halfAngle);
@@ -59,12 +62,26 @@ Quaternion& Quaternion::Normalize() {
 	return *this;
 }
 
+Quaternion Quaternion::Conjugate() {
+	return Quaternion(w, -x, -y, -z);
+}
+
 Vector3 Quaternion::ToVector3() const {
 	Vector3 newVec{};
 	newVec.x = atan2f(2.0f * (w * x + y * z), 1.0f - 2.0f * (x * x + y * y));
 	newVec.y = asinf(2.0f * (w * y - z * x));
 	newVec.z = atan2f(2.0f * (w * z + x * y), 1.0f - 2.0f * (y * y + z * z));
 	return newVec;
+}
+
+Quaternion FromGyro(Vector3 gyro, float dt) {
+	float angle = gyro.Magnitude();
+	if (angle < 1e-6f) return {1, 0, 0, 0}; // No rotation
+
+	Vector3 axis = Normalize(gyro);
+	float half   = 0.5f * angle * dt;
+	float s      = sinf(half);
+	return {cosf(half), axis.x * s, axis.y * s, axis.z * s};
 }
 
 Quaternion FromVectors(const Vector3& lhs, const Vector3& rhs) {

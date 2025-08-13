@@ -40,8 +40,8 @@
 
 // Program
 #include "bleService.hpp"
+#include "icm20948.hpp"
 #include "math.hpp"
-#include "mpu9250.hpp"
 #include "pca9548a.hpp"
 
 constexpr uint I2C_RATE_HZ{400 * 1000};
@@ -54,7 +54,7 @@ void Heartbeat(void* param);
 
 static SemaphoreHandle_t mutex_sensors;
 static PCA9548A* mux;
-static MPU9250* sensors[6];
+static ICM20948* sensors[6];
 
 static SemaphoreHandle_t mutex_ekf;
 static EKF ekfs[6];
@@ -82,8 +82,6 @@ void mainTask(void* param) {
 	gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
 	gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
 
-	vTaskDelay(1000);
-
 	// Init Mux
 	mux = static_cast<PCA9548A*>(pvPortMalloc(sizeof(PCA9548A)));
 	mux = new (mux) PCA9548A(i2c0, 0x70);
@@ -93,8 +91,8 @@ void mainTask(void* param) {
 		if (i > 0) continue;
 
 		// mux->Select(i + 2);
-		sensors[i] = static_cast<MPU9250*>(pvPortMalloc(sizeof(MPU9250)));
-		sensors[i] = new (sensors[i]) MPU9250(i2c0);
+		sensors[i] = static_cast<ICM20948*>(pvPortMalloc(sizeof(ICM20948)));
+		sensors[i] = new (sensors[i]) ICM20948(i2c0);
 	}
 
 	xTaskCreate(Heartbeat, "Heartbeat", configMINIMAL_STACK_SIZE, NULL, PRIORITY_IDLE, NULL);
@@ -134,16 +132,7 @@ void UpdateIMUs(void* param) {
 				if (i > 0) continue;
 
 				// mux->Select(i + 2);
-				// sensors[i]->Update();
-
-				const Vector3& a = sensors[i]->Acceleration;
-				const Vector3& v = sensors[i]->Gyroscope;
-				const Vector3& m = sensors[i]->Magnetometer;
-
-				// printf("Accel %6.3f %6.3f %6.3f\n", a.x, a.y, a.z);
-				// printf("Gyro  %6.3f %6.3f %6.3f\n", v.x, v.y, v.z);
-				// printf("Mag   %6.3f %6.3f %6.3f\n", m.x, m.y, m.z);
-				// printf("\n");
+				sensors[i]->Update();
 			}
 			xSemaphoreGive(mutex_sensors);
 		}
@@ -159,6 +148,7 @@ void UpdateIMUs(void* param) {
  */
 void UpdateOdometry(void* param) {
 	TickType_t lastTick = xTaskGetTickCount();
+
 	while (true) {
 		TickType_t currentTick = xTaskGetTickCount();
 		float dt               = (currentTick - lastTick) * portTICK_RATE_MS / 1000.0;
@@ -168,18 +158,20 @@ void UpdateOdometry(void* param) {
 				for (int i = 0; i < 6; i++) {
 					if (i > 0) continue; // Palm Sensor test
 
-					// Mahony Filter
-					poses[i].Orientation = IntegrateGyro(poses[i].Orientation, sensors[i]->Gyroscope, dt);
-					poses[i].Orientation = IntegrateAccel(poses[i].Orientation, sensors[i]->Acceleration, 0.1f);
+					// Simple complimentary filter
 
-					// EKF
-					ekfs[i].Update(sensors[i]->Gyroscope, sensors[i]->Acceleration, UnitY, dt);
+					// Prediction
+					Quaternion& p = poses[i].Orientation;
+					UpdatePrediction(poses[i].Orientation, sensors[i]->Gyroscope, dt);
 
-					// const Quaternion& o = odom.Orientation;
-					// const Quaternion& q = ekfs[i].GetState();
-					// printf("SLERP %6.3f %6.3f %6.3f %6.3f\n", o.w, o.x, o.y, o.z);
-					// printf("EKF   %6.3f %6.3f %6.3f %6.3f\n", q.w, q.x, q.y, q.z);
-					// printf("\n");
+					// Model
+					Quaternion m;
+					UpdateModel(m, sensors[i]->Acceleration, sensors[i]->Magnetometer);
+
+					// Correct Prediction
+					float alpha  = 1.0f - 0.9f;
+					Quaternion e = m * p.Conjugate();
+					p *= Quaternion(1, e.x * alpha, e.y * alpha, e.z * alpha);
 				}
 				xSemaphoreGive(mutex_ekf);
 			}
@@ -211,7 +203,8 @@ void BluetoothUpdate(void* param) {
 		if (xSemaphoreTake(mutex_ekf, 0U) == pdTRUE) {
 			ble.Publish(poses, xTaskGetTickCount() * portTICK_PERIOD_MS);
 
-			// printf("%6.3f %6.3f %6.3f %6.3f\n", poses[0].Orientation.w, poses[0].Orientation.x, poses[0].Orientation.y, poses[0].Orientation.z);
+			const Quaternion& p = poses[0].Orientation;
+			printf("%6.3f %6.3f %6.3f %6.3f\n", p.w, p.x, p.y, p.z);
 			xSemaphoreGive(mutex_ekf);
 		}
 		vTaskDelay(20 * portTICK_PERIOD_MS);

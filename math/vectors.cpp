@@ -116,10 +116,10 @@ Quaternion Vector3::ToQuaternion() const {
 	q.x = sr * cp * cy - cr * sp * sy;
 	q.y = cr * sp * cy + sr * cp * sy;
 	q.z = cr * cp * sy - sr * sp * cy;
-	return q;
+	return q.Normalize();
 }
 
 Vector3 Normalize(const Vector3& vec) {
 	float m = vec.Magnitude();
-	return Vector3{vec.x / m, vec.y / m, vec.z / m};
+	return vec / m;
 }

@@ -3,8 +3,8 @@
 
 #include "math.hpp"
 
-Quaternion IntegrateGyro(Quaternion current, Vector3 gyro, float dt);
-Quaternion IntegrateAccel(Quaternion currrent, Vector3 accel, float a);
+void UpdatePrediction(Quaternion& q, const Vector3& gyro, float dt);
+void UpdateModel(Quaternion& m, const Vector3& accel, const Vector3& mag);
 
 /**
  * @brief Extended Kalman Filter
@@ -26,7 +26,6 @@ private:
 	const float R_ACCEL = EPSILON;      // Accelerometer Noise (Measurement Trust)
 	const float R_MAG   = EPSILON;      // Magnetometer Noise  (Measurement Trust)
 	Vector3 B           = {};           // Gyro Bias
-	SquareMatrix<7> P   = {};           // State Covariance    (State Trust)
 };
 
-#endif /* KINEMATICS */
+#endif /* KINEMATICS_HPP */

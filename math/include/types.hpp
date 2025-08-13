@@ -4,9 +4,7 @@
 struct Vector2;
 struct Vector3;
 
-template <int N>
-struct SquareMatrix;
-struct Matrix3x3;
+struct DCM;
 
 struct Quaternion;
 

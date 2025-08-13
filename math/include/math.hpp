@@ -18,6 +18,7 @@ constexpr float EARTH_ROTATION_DEG = {4.1781e-3f};
 constexpr float PI      = {3.1415927};
 constexpr float PI_2    = {PI / 2};
 constexpr float DEG2RAD = {PI / 180.0};
+constexpr float RAD2DEG = {180.0 / PI};
 
 constexpr Vector3 UnitX = {1, 0, 0};
 constexpr Vector3 UnitY = {0, 1, 0};

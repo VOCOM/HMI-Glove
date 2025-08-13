@@ -28,23 +28,26 @@ public:
 	Vector3 Acceleration = {};
 	Vector3 Magnetometer = {};
 
+	// Offsets
+	Vector3 offsetAccel = {0.005, 0.001, 0.017};
+	Vector3 offsetGyro  = {0.003, -0.016, 0.002};
+	Vector3 offsetMag   = {};
+
 private:
 	void WriteRegister(uint8_t regAddress, uint8_t value);
 	void ReadRegister(uint8_t regAddress, uint8_t bytes);
 
-	i2c_inst_t* bus;
-	bool calibrate     = {};
-	uint8_t buffer[14] = {};
+	void WriteI2C0(uint8_t address, uint8_t regAddress, uint8_t value);
+	void ReadI2C0(uint8_t address, uint8_t regAddress, uint8_t bytes);
 
-	// Offsets
-	Vector3 offsetGyro  = {}; //{-2.000, 1.414, -1.330};
-	Vector3 offsetAccel = {}; //{0.058, 0.006, -0.049};
-	Vector3 offsetMag   = {}; //
+	i2c_inst_t* bus;
+	bool calibrate     = false;
+	uint8_t buffer[23] = {};
 
 	// Resolution
 	float resolutionGyro  = {};
 	float resolutionAccel = {};
-	float resolutionMag   = {};
+	float resolutionMag   = 0.15f;
 
 	// Low Pass Filter Gain
 	float alphaGyro  = 1.0f; // 0 > a > 1 | LF <-> HF
@@ -52,11 +55,12 @@ private:
 	float alphaMag   = 1.0f; // 0 > a > 1 | LF <-> HF
 
 	// Addresses
-	static const uint8_t I2C_ADDRESS  = 0x68;
-	static const uint8_t BANK0_IO     = 0x00;
-	static const uint8_t BANK1_OFFSET = 0x10;
-	static const uint8_t BANK2_CONFIG = 0x20;
-	static const uint8_t BANK3_I2C    = 0x30;
+	static const uint8_t I2C_ADDRESS     = 0x69;
+	static const uint8_t MAG_I2C_ADDRESS = 0x0C;
+	static const uint8_t BANK0_IO        = 0x00;
+	static const uint8_t BANK1_OFFSET    = 0x10;
+	static const uint8_t BANK2_CONFIG    = 0x20;
+	static const uint8_t BANK3_I2C       = 0x30;
 
 	// Registers
 	static const uint8_t REGISTER_BANK_SELECT           = 0x7F;
@@ -72,6 +76,7 @@ private:
 	static const uint8_t REGISTER_BANK3_SLAVE0_ADDRESS  = 0x03;
 	static const uint8_t REGISTER_BANK3_SLAVE0_REGISTER = 0x04;
 	static const uint8_t REGISTER_BANK3_SLAVE0_CONTROL  = 0x05;
+	static const uint8_t REGISTER_BANK3_SLAVE0_DATA_OUT = 0x06;
 };
 
 #endif /* ICM20948 */
