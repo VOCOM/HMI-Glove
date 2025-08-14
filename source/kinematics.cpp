@@ -1,34 +1,24 @@
 #include "kinematics.hpp"
 
-#include <iostream>
-
 void UpdatePrediction(Quaternion& q, const Vector3& gyro, float dt) {
 	float half_dt = 0.5f * dt;
 	Quaternion dq = {1, gyro.x * half_dt, gyro.y * half_dt, gyro.z * half_dt};
 	q *= dq;
 	q.Normalize();
 }
-void UpdateModel(Quaternion& m, const Vector3& accel, const Vector3& mag) {
+void UpdateModel(Quaternion& model, const Vector3& accel, const Vector3& mag) {
 	// Normalize
 	Vector3 aVec = Normalize(accel);
 	Vector3 mVec = Normalize(mag);
 
-	float roll  = atan2f(aVec.y, aVec.z);
-	float pitch = atan2f(-aVec.x, sqrtf(aVec.y * aVec.y + aVec.z * aVec.z));
+	// Tilt rotation
+	Quaternion tilt  = FromVectors(UnitZ, aVec);
+	Vector3 mLeveled = mVec.Rotate(tilt.Conjugate());
 
-	float pitch_cos = cosf(pitch);
-	float pitch_sin = sinf(pitch);
-	float roll_cos  = cosf(roll);
-	float roll_sin  = sinf(roll);
-
-	// Magnetometer Body frame -> World frame
-	Vector2 mLeveled;
-	mLeveled.x = mVec.x * pitch_cos + mVec.z * pitch_sin;
-	mLeveled.y = mVec.x * roll_sin * pitch_sin + mVec.y * roll_cos - mVec.z * roll_sin * pitch_cos;
-	float yaw  = atan2f(mLeveled.x, mLeveled.y) - PI_4;
-	if (yaw < -PI_2) yaw = -(yaw + PI_2);
-
-	m = Vector3{roll, pitch, yaw}.ToQuaternion();
+	// Yaw rotation
+	float yaw = atan2f(mLeveled.x, mLeveled.y);
+	yaw       = fmodf(yaw + PI, 2.0f * PI) - PI;
+	model     = Quaternion(UnitZ, yaw) * tilt;
 }
 
 void EKF::Update(Vector3 gyro, Vector3 accel, Vector3 mag, float dt) {

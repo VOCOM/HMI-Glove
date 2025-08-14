@@ -183,6 +183,9 @@ void UpdateOdometry(void* param) {
 					float alpha  = 1.0f - 0.9f;
 					Quaternion e = m * p.Conjugate();
 					p *= Quaternion(1, e.x * alpha, e.y * alpha, e.z * alpha);
+
+					Vector3 mV = m.ToVector3();
+					printf("Model %6.3f %6.3f %6.3f\n", mV.x, mV.y, mV.z);
 				}
 				xSemaphoreGive(mutex_ekf);
 			}
@@ -217,11 +220,11 @@ void BluetoothUpdate(void* param) {
 			const Quaternion& p = poses[0].Orientation;
 			Vector3 pVec        = p.ToVector3();
 
-			if (poses[0].Stale) {
-				printf("Error Detected\n");
-			} else {
-				printf("%6.3f %6.3f %6.3f\n", pVec.x, pVec.y, pVec.z);
-			}
+			// if (poses[0].Stale) {
+			// 	printf("Error Detected\n");
+			// } else {
+			// 	printf("%6.3f %6.3f %6.3f\n", pVec.x, pVec.y, pVec.z);
+			// }
 			xSemaphoreGive(mutex_ekf);
 		}
 		vTaskDelay(20 * portTICK_PERIOD_MS);
