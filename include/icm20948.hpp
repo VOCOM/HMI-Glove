@@ -15,6 +15,9 @@ class ICM20948 {
 public:
 	ICM20948(i2c_inst_t* bus);
 
+	bool Error();
+
+	void Ping();
 	void Reset();
 	void Calibrate();
 	void Update();
@@ -40,8 +43,10 @@ private:
 	void WriteI2C0(uint8_t address, uint8_t regAddress, uint8_t value);
 	void ReadI2C0(uint8_t address, uint8_t regAddress, uint8_t bytes);
 
+	bool calibrate = false;
+	bool readError = false;
+
 	i2c_inst_t* bus;
-	bool calibrate     = false;
 	uint8_t buffer[23] = {};
 
 	// Resolution

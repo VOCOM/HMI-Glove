@@ -90,7 +90,7 @@ void mainTask(void* param) {
 	for (int i = 0; i < 6; i++) {
 		if (i > 0) continue;
 
-		// mux->Select(i + 2);
+		mux->Select(i);
 		sensors[i] = static_cast<ICM20948*>(pvPortMalloc(sizeof(ICM20948)));
 		sensors[i] = new (sensors[i]) ICM20948(i2c0);
 	}
@@ -131,7 +131,15 @@ void UpdateIMUs(void* param) {
 			for (int i = 0; i < 6; i++) {
 				if (i > 0) continue;
 
-				// mux->Select(i + 2);
+				mux->Select(i);
+
+				// Recovery routine
+				if (sensors[i]->Error()) {
+					sensors[i]->Ping();
+					if (sensors[i]->Error()) continue;
+					sensors[i]->Reset();
+				}
+
 				sensors[i]->Update();
 			}
 			xSemaphoreGive(mutex_sensors);
@@ -157,6 +165,9 @@ void UpdateOdometry(void* param) {
 			if (xSemaphoreTake(mutex_ekf, 0U) == pdTRUE) {
 				for (int i = 0; i < 6; i++) {
 					if (i > 0) continue; // Palm Sensor test
+
+					poses[i].Stale = sensors[i]->Error();
+					if (poses[i].Stale) continue;
 
 					// Simple complimentary filter
 
@@ -204,7 +215,13 @@ void BluetoothUpdate(void* param) {
 			ble.Publish(poses, xTaskGetTickCount() * portTICK_PERIOD_MS);
 
 			const Quaternion& p = poses[0].Orientation;
-			printf("%6.3f %6.3f %6.3f %6.3f\n", p.w, p.x, p.y, p.z);
+			Vector3 pVec        = p.ToVector3();
+
+			if (poses[0].Stale) {
+				printf("Error Detected\n");
+			} else {
+				printf("%6.3f %6.3f %6.3f\n", pVec.x, pVec.y, pVec.z);
+			}
 			xSemaphoreGive(mutex_ekf);
 		}
 		vTaskDelay(20 * portTICK_PERIOD_MS);

@@ -4,10 +4,23 @@
 
 ICM20948::ICM20948(i2c_inst_t* bus) : bus(bus) {
 	Reset();
+	Ping();
+}
 
-	// Load ID [Should be 0xEA]
-	ReadRegister(REGISTER_BANK0_WHO_AM_I, 1);
-	ID = buffer[0];
+bool ICM20948::Error() {
+	return readError;
+}
+
+void ICM20948::Reset() {
+	vTaskDelay(1000 * portTICK_PERIOD_MS);
+
+	WriteRegister(REGISTER_BANK_SELECT, BANK0_IO);
+	WriteRegister(REGISTER_BANK0_POWER_MGMT, 0x80);
+	vTaskDelay(100 * portTICK_PERIOD_MS);
+
+	// Wake
+	WriteRegister(REGISTER_BANK0_POWER_MGMT, 0x01);
+	vTaskDelay(10 * portTICK_PERIOD_MS);
 
 	// Configure Sensors with Digital Low Pass Filters
 	ConfigureGyroscope(0, 3);
@@ -31,14 +44,10 @@ ICM20948::ICM20948(i2c_inst_t* bus) : bus(bus) {
 	WriteRegister(REGISTER_BANK3_SLAVE0_CONTROL, 0x09 | 0x80);
 	vTaskDelay(10 * portTICK_PERIOD_MS);
 }
-
-void ICM20948::Reset() {
-	WriteRegister(REGISTER_BANK_SELECT, BANK0_IO);
-	WriteRegister(REGISTER_BANK0_POWER_MGMT, 0x80);
-	vTaskDelay(100 * portTICK_PERIOD_MS);
-
-	WriteRegister(REGISTER_BANK0_POWER_MGMT, 0x01);
-	vTaskDelay(10 * portTICK_PERIOD_MS);
+void ICM20948::Ping() {
+	// Load ID [Should be 0xEA]
+	ReadRegister(REGISTER_BANK0_WHO_AM_I, 1);
+	ID = buffer[0];
 }
 void ICM20948::Calibrate() {
 	calibrate = true;
@@ -129,9 +138,11 @@ void ICM20948::WriteRegister(uint8_t regAddress, uint8_t value) {
 	vTaskDelay(10 * portTICK_PERIOD_MS);
 }
 void ICM20948::ReadRegister(uint8_t regAddress, uint8_t bytes) {
+	readError = false;
 	buffer[0] = regAddress;
 	i2c_write_blocking(bus, I2C_ADDRESS, buffer, 1, true);
-	i2c_read_blocking(bus, I2C_ADDRESS, buffer, bytes, false);
+	int retVal = i2c_read_blocking(bus, I2C_ADDRESS, buffer, bytes, false);
+	if (retVal == PICO_ERROR_GENERIC) readError = true;
 }
 
 void ICM20948::WriteI2C0(uint8_t address, uint8_t regAddress, uint8_t value) {

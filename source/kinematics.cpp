@@ -1,5 +1,7 @@
 #include "kinematics.hpp"
 
+#include <iostream>
+
 void UpdatePrediction(Quaternion& q, const Vector3& gyro, float dt) {
 	float half_dt = 0.5f * dt;
 	Quaternion dq = {1, gyro.x * half_dt, gyro.y * half_dt, gyro.z * half_dt};
@@ -19,11 +21,12 @@ void UpdateModel(Quaternion& m, const Vector3& accel, const Vector3& mag) {
 	float roll_cos  = cosf(roll);
 	float roll_sin  = sinf(roll);
 
-	// Rotate Magnetometer
+	// Magnetometer Body frame -> World frame
 	Vector2 mLeveled;
 	mLeveled.x = mVec.x * pitch_cos + mVec.z * pitch_sin;
 	mLeveled.y = mVec.x * roll_sin * pitch_sin + mVec.y * roll_cos - mVec.z * roll_sin * pitch_cos;
-	float yaw  = atan2f(mLeveled.x, mLeveled.y);
+	float yaw  = atan2f(mLeveled.x, mLeveled.y) - PI_4;
+	if (yaw < -PI_2) yaw = -(yaw + PI_2);
 
 	m = Vector3{roll, pitch, yaw}.ToQuaternion();
 }

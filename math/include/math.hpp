@@ -17,6 +17,7 @@ constexpr float EARTH_ROTATION_DEG = {4.1781e-3f};
 
 constexpr float PI      = {3.1415927};
 constexpr float PI_2    = {PI / 2};
+constexpr float PI_4    = {PI / 4};
 constexpr float DEG2RAD = {PI / 180.0};
 constexpr float RAD2DEG = {180.0 / PI};
 
@@ -25,6 +26,7 @@ constexpr Vector3 UnitY = {0, 1, 0};
 constexpr Vector3 UnitZ = {0, 0, 1};
 
 struct Pose {
+	bool Stale             = true;
 	Vector3 Position       = {};
 	Quaternion Orientation = {1, 0, 0, 0};
 };
@@ -32,4 +34,4 @@ struct Pose {
 #include "filters.hpp"
 #include "kinematics.hpp"
 
-#endif /* MATH */
+#endif /* MATH_HPP */
